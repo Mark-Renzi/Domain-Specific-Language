@@ -1,4 +1,4 @@
-# CS-536-Group-Projectbr
+# CS-536-Group-Project
 
 Code defining a domain specific language, parsed in Scala and transpiled to C.<br>
 For WPI CS 536 - Programming Language Design.
