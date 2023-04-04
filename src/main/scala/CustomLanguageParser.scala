@@ -15,7 +15,7 @@ case class FloatLiteral(value: Float) extends Expression
 case class BooleanLiteral(value: Boolean) extends Expression
 case class StringLiteral(value: String) extends Expression
 case class VariableReference(name: String) extends Expression
-sealed trait StatementOrExpression extends Ast
+case class FunctionDeclaration(variableType: String, variable:String, param: Seq[(String, VariableReference)]) extends Statement
 
 
 // Define the parser
@@ -55,7 +55,7 @@ object CustomLanguageParser {
   def variableReference[_: P]: P[VariableReference] = P(CharIn("a-zA-Z").rep(1).!.map(VariableReference))
 
   // Parse an expression (either an integer literal, float literal, boolean literal, string literal, or a variable reference)
-  def expression[_: P]: P[Expression] = P(floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference)
+  def expression[_: P]: P[Expression] = P((floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference))
 
   // Parse a variable declaration statement
   def variableDeclaration[_: P]: P[VariableDeclaration] =
@@ -63,13 +63,20 @@ object CustomLanguageParser {
       case (t, VariableReference(v), e) => VariableDeclaration(t, v, e)
     }
 
+  // Parse a variable redefinition
   def variableDefinition[_: P]: P[VariableDefinition] =
     P(variableReference ~ "=" ~ expression).map {
       case (VariableReference(v), e) => VariableDefinition(v, e)
     }
-
+  
+  // Parse a function declaration statement
+  def functionDeclaration[_: P]: P[FunctionDeclaration] =
+    P(variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min=0,sep="," ) ~ ")" ~ ":").map {
+      case (t, VariableReference(v), s) => FunctionDeclaration(t, v, s)
+    }
+  
   // Parse a program
-  def program[_: P]: P[Program] = P((variableDeclaration | variableDefinition).rep ~ End).map(Program)
+  def program[_: P]: P[Program] = P((variableDeclaration | variableDefinition | functionDeclaration).rep ~ End).map(Program)
 
   // Parse a file
   def parseFile(filename: String): Parsed[Program] = {
