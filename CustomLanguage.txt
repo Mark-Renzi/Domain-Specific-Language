@@ -7,7 +7,7 @@ f32 PI = 3.1415
 u8 myFunc(u32 price, string item):
     u32 amt = price
     return amt
-u8 myFunc(u32 price, string item):
+void myFunction(u32 price, string item):
     u32 amt = price
 count = 1
 u8 ret = myFunc(count, a)
