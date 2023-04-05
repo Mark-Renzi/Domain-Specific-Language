@@ -9,7 +9,7 @@ case class Program(statements: Seq[Statement]) extends Ast
 sealed trait Statement extends Ast
 case class VariableDeclaration(variableType: String, variable: String, value: Expression) extends Statement
 case class VariableDefinition(variable: String, value: Expression) extends Statement
-case class FunctionDeclaration(variableType: String, variable:String, param: Seq[(String, VariableReference)], body: Seq[Statement], ret: Option[Expression]) extends Statement
+case class FunctionDeclaration(variableType: String, variable:String, param: Seq[(String, VariableReference)], body: Seq[Statement], ret: Option[Option[Expression]]) extends Statement
 sealed trait Expression extends Ast
 case class IntegerLiteral(value: Int) extends Expression
 case class FloatLiteral(value: Float) extends Expression
@@ -72,7 +72,7 @@ object CustomLanguageParser {
   
   // Parse a function declaration statement
   def functionDeclaration[_: P]: P[FunctionDeclaration] =
-    P(variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min=0,sep="," ) ~ ")" ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~ ((" " | "\t").repX(1) ~~ "return") ~ (expression).? ~ newline).map {
+    P(variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min=0,sep="," ) ~ ")" ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~/ (((" " | "\t").repX(1) ~~ "return") ~/ (expression).? ~ newline).?).map {
       case (t, VariableReference(v), s, b, r) => FunctionDeclaration(t, v, s, b, r)
     }
 
