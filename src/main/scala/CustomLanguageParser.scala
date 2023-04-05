@@ -9,18 +9,19 @@ case class Program(statements: Seq[Statement]) extends Ast
 sealed trait Statement extends Ast
 case class VariableDeclaration(variableType: String, variable: String, value: Expression) extends Statement
 case class VariableDefinition(variable: String, value: Expression) extends Statement
+case class FunctionDeclaration(variableType: String, variable:String, param: Seq[(String, VariableReference)], body: Seq[Statement], ret: Option[Expression]) extends Statement
 sealed trait Expression extends Ast
 case class IntegerLiteral(value: Int) extends Expression
 case class FloatLiteral(value: Float) extends Expression
 case class BooleanLiteral(value: Boolean) extends Expression
 case class StringLiteral(value: String) extends Expression
 case class VariableReference(name: String) extends Expression
-sealed trait StatementOrExpression extends Ast
+case class FunctionCall(variable:String, param: Seq[(Expression)]) extends Expression
 
 
 // Define the parser
 object CustomLanguageParser {
-  import fastparse._, MultiLineWhitespace._
+  import fastparse._, SingleLineWhitespace._
 
   // Parse a variable type
   def variableType[_: P]: P[String] = P(
@@ -39,12 +40,6 @@ object CustomLanguageParser {
   // Parse a float literal
   def floatLiteral[_: P]: P[FloatLiteral] = P((CharIn("0-9").rep(1) ~ "." ~ CharIn("0-9").rep(1)).!.map(s => FloatLiteral(s.toFloat)))
 
-  // Ask prof if something like this is possible
-//  def numLiteral[_: P] = P(((CharIn("0-9").rep(1) ~ "." ~ CharIn("0-9").rep(1)) | (CharIn("0-9").rep(1).!.map(s => IntegerLiteral(s.toInt)))).!.map(
-//    case (s,a) => FloatLiteral(s.toFloat)
-//    case _ => IntegerLiteral(s.toInt)
-//  ))
-
   // Parse a boolean literal
   def booleanLiteral[_: P]: P[BooleanLiteral] = P(StringIn("true", "false").!.map(s => BooleanLiteral(s.toBoolean)))
 
@@ -55,21 +50,40 @@ object CustomLanguageParser {
   def variableReference[_: P]: P[VariableReference] = P(CharIn("a-zA-Z").rep(1).!.map(VariableReference))
 
   // Parse an expression (either an integer literal, float literal, boolean literal, string literal, or a variable reference)
-  def expression[_: P]: P[Expression] = P(floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference)
+  def expression[_: P]: P[Expression] = P((functionCall | floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference))
+
+  // Matching a newline
+  def newline[_: P]: P[Unit] = P((("\r".? ~ "\n" | "\r") | End).map(_ => ()))
+
+  // Parse a generic statement
+  def statement[_: P]: P[Statement] = (variableDeclaration | variableDefinition | functionDeclaration)
 
   // Parse a variable declaration statement
   def variableDeclaration[_: P]: P[VariableDeclaration] =
-    P(variableType ~ variableReference ~ "=" ~ expression).map {
+    P(variableType ~ variableReference ~ "=" ~ expression ~ newline).map {
       case (t, VariableReference(v), e) => VariableDeclaration(t, v, e)
     }
 
+  // Parse a variable redefinition
   def variableDefinition[_: P]: P[VariableDefinition] =
-    P(variableReference ~ "=" ~ expression).map {
+    P(variableReference ~ "=" ~ expression ~ newline).map {
       case (VariableReference(v), e) => VariableDefinition(v, e)
     }
+  
+  // Parse a function declaration statement
+  def functionDeclaration[_: P]: P[FunctionDeclaration] =
+    P(variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min=0,sep="," ) ~ ")" ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~ ((" " | "\t").repX(1) ~~ "return") ~ (expression).? ~ newline).map {
+      case (t, VariableReference(v), s, b, r) => FunctionDeclaration(t, v, s, b, r)
+    }
 
+  // Parse a function call
+  def functionCall[_: P]: P[FunctionCall] =
+    P(variableReference ~ "(" ~ (expression).rep(min = 0, sep = ",") ~ ")" ).map {
+      case (VariableReference(v), s) => FunctionCall(v, s)
+    }
+  
   // Parse a program
-  def program[_: P]: P[Program] = P((variableDeclaration | variableDefinition).rep ~ End).map(Program)
+  def program[_: P]: P[Program] = P(statement.rep ~ End).map(Program)
 
   // Parse a file
   def parseFile(filename: String): Parsed[Program] = {
