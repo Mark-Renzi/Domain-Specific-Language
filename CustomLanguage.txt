@@ -11,3 +11,16 @@ void myFunction(u32 price, string item):
     u32 amt = price
 count = 1
 u8 ret = myFunc(count, a)
+if true:
+    a = b
+a = price2
+if true:
+    a = c
+elif false:
+    b=a
+    a=b
+else:
+    if true:
+        b = b
+    a= a
+c=a

@@ -8,15 +8,16 @@ sealed trait Ast
 case class Program(statements: Seq[Statement]) extends Ast
 sealed trait Statement extends Ast
 case class VariableDeclaration(variableType: String, variable: String, value: Expression) extends Statement
-case class VariableDefinition(variable: String, value: Expression) extends Statement
+case class VariableDefinition(variable: Expression, value: Expression) extends Statement
 case class FunctionDeclaration(variableType: String, variable:String, param: Seq[(String, VariableReference)], body: Seq[Statement], ret: Option[Option[Expression]]) extends Statement
+case class Conditional(condition: Option[Expression], body: Seq[Statement], next: Seq[Conditional]) extends Statement
 sealed trait Expression extends Ast
 case class IntegerLiteral(value: Int) extends Expression
 case class FloatLiteral(value: Float) extends Expression
 case class BooleanLiteral(value: Boolean) extends Expression
 case class StringLiteral(value: String) extends Expression
 case class VariableReference(name: String) extends Expression
-case class FunctionCall(variable:String, param: Seq[(Expression)]) extends Expression
+case class FunctionCall(variable:VariableReference, param: Seq[(Expression)]) extends Expression
 
 
 // Define the parser
@@ -34,6 +35,13 @@ object CustomLanguageParser {
     ).!
   )
 
+  def ops[_: P]: P[String] = P(
+    StringIn(
+      "==", 
+      "+", "-", "*", "/",
+    ).!
+  )
+
   // Parse an integer literal
   def integerLiteral[_: P]: P[IntegerLiteral] = P(CharIn("0-9").rep(1).!.map(s => IntegerLiteral(s.toInt)))
 
@@ -47,16 +55,16 @@ object CustomLanguageParser {
   def stringLiteral[_: P]: P[StringLiteral] = P("\"" ~/ CharsWhile(_ != '\"', 0).! ~ "\"").map(StringLiteral)
 
   // Parse a variable reference
-  def variableReference[_: P]: P[VariableReference] = P(CharIn("a-zA-Z").rep(1).!.map(VariableReference))
+  def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z") ~~ CharIn("a-zA-Z0-9").rep).!.map(VariableReference))
 
   // Parse an expression (either an integer literal, float literal, boolean literal, string literal, or a variable reference)
-  def expression[_: P]: P[Expression] = P((functionCall | floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference))
+  def expression[_: P]: P[Expression] = P(functionCall | floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference)
 
   // Matching a newline
   def newline[_: P]: P[Unit] = P((("\r".? ~ "\n" | "\r") | End).map(_ => ()))
 
   // Parse a generic statement
-  def statement[_: P]: P[Statement] = (variableDeclaration | variableDefinition | functionDeclaration)
+  def statement[_: P]: P[Statement] = (functionDeclaration | ifConditional | variableDeclaration | variableDefinition)
 
   // Parse a variable declaration statement
   def variableDeclaration[_: P]: P[VariableDeclaration] =
@@ -67,7 +75,7 @@ object CustomLanguageParser {
   // Parse a variable redefinition
   def variableDefinition[_: P]: P[VariableDefinition] =
     P(variableReference ~ "=" ~ expression ~ newline).map {
-      case (VariableReference(v), e) => VariableDefinition(v, e)
+      case (v, e) => VariableDefinition(v, e)
     }
   
   // Parse a function declaration statement
@@ -79,7 +87,25 @@ object CustomLanguageParser {
   // Parse a function call
   def functionCall[_: P]: P[FunctionCall] =
     P(variableReference ~ "(" ~ (expression).rep(min = 0, sep = ",") ~ ")" ).map {
-      case (VariableReference(v), s) => FunctionCall(v, s)
+      case (v, s) => FunctionCall(v, s)
+    }
+  
+  // Parse an if statement
+  def ifConditional[_: P]: P[Conditional] =
+    P("if" ~/ expression ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~ (elifConditional | elseConditional).repX() ).map {
+      case (c, b, n) => Conditional(Some(c), b, n)
+    }
+
+  // Parse an elif statement
+  def elifConditional[_: P]: P[Conditional] =
+    P("elif" ~/ expression ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~ (elifConditional | elseConditional).repX() ).map {
+      case (c, b, n) => Conditional(Some(c), b, n)
+    }
+  
+  // Parse an else statment
+  def elseConditional[_: P]: P[Conditional] =
+    P("else" ~/ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX()).map {
+      case (b) => Conditional(None, b, Seq[Conditional]())
     }
   
   // Parse a program
