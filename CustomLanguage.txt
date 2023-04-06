@@ -13,7 +13,7 @@ count = 1
 u8 ret = myFunc(count, a)
 if true:
     a = b
-a = price
+a = price2
 if true:
     a = c
 elif false:

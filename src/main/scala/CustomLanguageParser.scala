@@ -35,6 +35,13 @@ object CustomLanguageParser {
     ).!
   )
 
+  def ops[_: P]: P[String] = P(
+    StringIn(
+      "==", 
+      "+", "-", "*", "/",
+    ).!
+  )
+
   // Parse an integer literal
   def integerLiteral[_: P]: P[IntegerLiteral] = P(CharIn("0-9").rep(1).!.map(s => IntegerLiteral(s.toInt)))
 
@@ -48,7 +55,7 @@ object CustomLanguageParser {
   def stringLiteral[_: P]: P[StringLiteral] = P("\"" ~/ CharsWhile(_ != '\"', 0).! ~ "\"").map(StringLiteral)
 
   // Parse a variable reference
-  def variableReference[_: P]: P[VariableReference] = P(CharIn("a-zA-Z").rep(1).!.map(VariableReference))
+  def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z") ~~ CharIn("a-zA-Z0-9").rep).!.map(VariableReference))
 
   // Parse an expression (either an integer literal, float literal, boolean literal, string literal, or a variable reference)
   def expression[_: P]: P[Expression] = P(functionCall | floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference)
