@@ -46,23 +46,27 @@ object CustomLanguageParser {
   def booleanLiteral[_: P]: P[BooleanLiteral] = P(StringIn("true", "false").!.map(s => BooleanLiteral(s.toBoolean)))
 
   // Parse a string literal
-  def stringLiteral[_: P]: P[StringLiteral] = P("\"" ~/ CharsWhile(_ != '\"', 0).! ~ "\"").map(StringLiteral)
+  def stringLiteral[_: P]: P[StringLiteral] = P("\"" ~ CharsWhile(_ != '\"', 0).! ~ "\"").map(StringLiteral)
 
   // Parse a variable reference
   def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z") ~~ CharIn("a-zA-Z0-9").rep).!.map(VariableReference))
 
   // Parse an expression (either an integer literal, float literal, boolean literal, string literal, or a variable reference)
-  def expression[_: P]: P[Expression] = P(functionCall | arithmetic | floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference | paren)
+  def expression[_: P]: P[Expression] = P(functionCall | operation | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | variableReference | paren)
 
-  // Parse arithmetic
-  def arithmetic[_: P]: P[Operation] = P((functionCall | floatLiteral | integerLiteral | variableReference | paren) ~ (("+" | "-") | ("*" | "/" | "%")).! ~ expression).map{
+  // Parse an operation
+
+  def operation[_: P]: P[Expression] = P(arithmetic | boolarithmetic)
+
+  // Parse boolean arithmetic
+  def boolarithmetic[_: P]: P[Operation] = P((functionCall |floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference | paren) ~ ("==" | "!=").! ~ expression).map {
     case (l, op, r) => Operation(l, op, r)
   }
 
-  // // Parse multiplication or division operation
-  // def multdiv[_: P]: P[Operation] = P((functionCall | floatLiteral | integerLiteral | variableReference) ~ ("*" | "/").! ~/ expression).map{
-  //   case (l, op, r) => Operation(l, op, r)
-  // }
+  // Parse arithmetic
+  def arithmetic[_: P]: P[Operation] = P((functionCall | floatLiteral | integerLiteral | stringLiteral | variableReference | paren) ~ (("+" | "-") | ("*" | "/" | "%")).! ~ expression).map{
+    case (l, op, r) => Operation(l, op, r)
+  }
 
   // Parse parentheses
   def paren[_: P]: P[Expression] = P("(" ~ expression ~ ")")
