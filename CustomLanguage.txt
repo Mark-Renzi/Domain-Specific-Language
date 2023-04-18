@@ -21,6 +21,9 @@ elif false:
     a=b
 else:
     if true:
-        b = 1 / 3
+        b = 1 + (3 / 3)
+        c = (5) + 4
+        D = (1+ 1) / 2
+        eD = ((1+ 1) % 2)
     a= a
 c=a

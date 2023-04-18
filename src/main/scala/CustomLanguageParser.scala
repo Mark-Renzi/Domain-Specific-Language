@@ -52,13 +52,10 @@ object CustomLanguageParser {
   def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z") ~~ CharIn("a-zA-Z0-9").rep).!.map(VariableReference))
 
   // Parse an expression (either an integer literal, float literal, boolean literal, string literal, or a variable reference)
-  def expression[_: P]: P[Expression] = P(functionCall | operation | floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference)
-
-  // Parse evaluation
-  def operation[_: P]: P[Expression] = (arithmetic | paren)
+  def expression[_: P]: P[Expression] = P(functionCall | arithmetic | floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference | paren)
 
   // Parse arithmetic
-  def arithmetic[_: P]: P[Operation] = P((functionCall | floatLiteral | integerLiteral | variableReference) ~ (("+" | "-") | ("*" | "/")).! ~/ expression).map{
+  def arithmetic[_: P]: P[Operation] = P((functionCall | floatLiteral | integerLiteral | variableReference | paren) ~ (("+" | "-") | ("*" | "/" | "%")).! ~ expression).map{
     case (l, op, r) => Operation(l, op, r)
   }
 
@@ -68,7 +65,7 @@ object CustomLanguageParser {
   // }
 
   // Parse parentheses
-  def paren[_: P]: P[Expression] = P("(" ~/ expression ~ ")")
+  def paren[_: P]: P[Expression] = P("(" ~ expression ~ ")")
 
   // Matching a newline
   def newline[_: P]: P[Unit] = P((("\r".? ~ "\n" | "\r") | End).map(_ => ()))
