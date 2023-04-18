@@ -17,7 +17,7 @@ case class FloatLiteral(value: Float) extends Expression
 case class BooleanLiteral(value: Boolean) extends Expression
 case class StringLiteral(value: String) extends Expression
 case class VariableReference(name: String) extends Expression
-case class Operation(l: Expression, op: String, r: Expression) extends Expression
+case class Operation(l: Expression, r: Seq[(String, Expression)]) extends Expression
 case class FunctionCall(variable:VariableReference, param: Seq[(Expression)]) extends Expression
 
 
@@ -51,22 +51,33 @@ object CustomLanguageParser {
   // Parse a variable reference
   def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z") ~~ CharIn("a-zA-Z0-9").rep).!.map(VariableReference))
 
-  // Parse an expression (either an integer literal, float literal, boolean literal, string literal, or a variable reference)
-  def expression[_: P]: P[Expression] = P(functionCall | operation | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | variableReference | paren)
+  // // Parse an expression (either an integer literal, float literal, boolean literal, string literal, or a variable reference)
+  // def expression[_: P]: P[Expression] = P(functionCall | operation | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | variableReference | paren)
 
-  // Parse an operation
+  // // Parse an operation
+  // def operation[_: P]: P[Expression] = P(arithmetic | boolarithmetic)
 
-  def operation[_: P]: P[Expression] = P(arithmetic | boolarithmetic)
+  // // Parse boolean arithmetic
+  // def boolarithmetic[_: P]: P[Operation] = P((functionCall | floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference | paren) ~ ("==" | "!=").! ~ expression).map {
+  //   case (l, op, r) => Operation(l, op, r)
+  // }
 
-  // Parse boolean arithmetic
-  def boolarithmetic[_: P]: P[Operation] = P((functionCall |floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference | paren) ~ ("==" | "!=").! ~ expression).map {
-    case (l, op, r) => Operation(l, op, r)
+  // // Parse arithmetic
+  // def arithmetic[_: P]: P[Operation] = P((functionCall | floatLiteral | integerLiteral | stringLiteral | variableReference | paren) ~ (("+" | "-") | ("*" | "/" | "%")).! ~ expression).map{
+  //   case (l, op, r) => Operation(l, op, r)
+  // }
+
+  def factor[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | variableReference)
+  def parens[$: P]: P[Expression] = P( "(" ~/ addSub ~ ")" )
+  def expression[$: P]: P[Expression] = P( factor | parens )
+
+  def divMul[$: P]: P[Operation] = P( expression ~ (CharIn("*/").! ~/ expression).rep(1) ).map{
+    case (l, r) => Operation(l, r)
   }
-
-  // Parse arithmetic
-  def arithmetic[_: P]: P[Operation] = P((functionCall | floatLiteral | integerLiteral | stringLiteral | variableReference | paren) ~ (("+" | "-") | ("*" | "/" | "%")).! ~ expression).map{
-    case (l, op, r) => Operation(l, op, r)
+  def addSub[$: P]: P[Operation] = P( divMul ~ (CharIn("+\\-").! ~/ divMul).rep(1) ).map{
+    case (l, r) => Operation(l, r)
   }
+  def expr[$: P]: P[Operation]   = P( addSub )
 
   // Parse parentheses
   def paren[_: P]: P[Expression] = P("(" ~ expression ~ ")")
