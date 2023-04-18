@@ -9,7 +9,7 @@ u8 myFunc(u32 price, string item):
     return amt
 void myFunction(u32 price, string item):
     u32 amt = price
-count = 1 + 1
+count = (1 + 1)
 u8 ret = myFunc(count, a)
 if true:
     a = b

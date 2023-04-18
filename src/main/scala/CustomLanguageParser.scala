@@ -67,17 +67,17 @@ object CustomLanguageParser {
   //   case (l, op, r) => Operation(l, op, r)
   // }
 
-  def factor[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | variableReference)
+  def number[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | variableReference)
   def parens[$: P]: P[Expression] = P( "(" ~/ addSub ~ ")" )
-  def expression[$: P]: P[Expression] = P( factor | parens )
+  def factor[$: P]: P[Expression] = P( number | parens )
 
-  def divMul[$: P]: P[Operation] = P( expression ~ (CharIn("*/").! ~/ expression).rep(1) ).map{
+  def divMul[$: P]: P[Operation] = P( factor ~ (CharIn("*/").! ~/ factor).rep(1) ).map{
     case (l, r) => Operation(l, r)
   }
   def addSub[$: P]: P[Operation] = P( divMul ~ (CharIn("+\\-").! ~/ divMul).rep(1) ).map{
     case (l, r) => Operation(l, r)
   }
-  def expr[$: P]: P[Operation]   = P( addSub )
+  def expression[$: P]: P[Operation]   = P( addSub )
 
   // Parse parentheses
   def paren[_: P]: P[Expression] = P("(" ~ expression ~ ")")
