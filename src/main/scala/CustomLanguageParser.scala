@@ -17,6 +17,7 @@ case class FloatLiteral(value: Float) extends Expression
 case class BooleanLiteral(value: Boolean) extends Expression
 case class StringLiteral(value: String) extends Expression
 case class VariableReference(name: String) extends Expression
+case class Operation(l: Expression, op: String, r: Expression) extends Expression
 case class FunctionCall(variable:VariableReference, param: Seq[(Expression)]) extends Expression
 
 
@@ -32,13 +33,6 @@ object CustomLanguageParser {
       "i8", "i16", "i32", "i64",
       "f32", "f64",
       "void"
-    ).!
-  )
-
-  def ops[_: P]: P[String] = P(
-    StringIn(
-      "==", 
-      "+", "-", "*", "/",
     ).!
   )
 
@@ -58,7 +52,23 @@ object CustomLanguageParser {
   def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z") ~~ CharIn("a-zA-Z0-9").rep).!.map(VariableReference))
 
   // Parse an expression (either an integer literal, float literal, boolean literal, string literal, or a variable reference)
-  def expression[_: P]: P[Expression] = P(functionCall | floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference)
+  def expression[_: P]: P[Expression] = P(functionCall | operation | floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference)
+
+  // Parse evaluation
+  def operation[_: P]: P[Expression] = (arithmetic | paren)
+
+  // Parse arithmetic
+  def arithmetic[_: P]: P[Operation] = P((functionCall | floatLiteral | integerLiteral | variableReference) ~ (("+" | "-") | ("*" | "/")).! ~/ expression).map{
+    case (l, op, r) => Operation(l, op, r)
+  }
+
+  // // Parse multiplication or division operation
+  // def multdiv[_: P]: P[Operation] = P((functionCall | floatLiteral | integerLiteral | variableReference) ~ ("*" | "/").! ~/ expression).map{
+  //   case (l, op, r) => Operation(l, op, r)
+  // }
+
+  // Parse parentheses
+  def paren[_: P]: P[Expression] = P("(" ~/ expression ~ ")")
 
   // Matching a newline
   def newline[_: P]: P[Unit] = P((("\r".? ~ "\n" | "\r") | End).map(_ => ()))
