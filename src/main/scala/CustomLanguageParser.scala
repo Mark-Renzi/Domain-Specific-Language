@@ -17,6 +17,7 @@ case class FloatLiteral(value: Float) extends Expression
 case class BooleanLiteral(value: Boolean) extends Expression
 case class StringLiteral(value: String) extends Expression
 case class VariableReference(name: String) extends Expression
+case class Operation(l: Expression, r: Seq[(String, Expression)]) extends Expression
 case class FunctionCall(variable:VariableReference, param: Seq[(Expression)]) extends Expression
 
 
@@ -35,13 +36,6 @@ object CustomLanguageParser {
     ).!
   )
 
-  def ops[_: P]: P[String] = P(
-    StringIn(
-      "==", 
-      "+", "-", "*", "/",
-    ).!
-  )
-
   // Parse an integer literal
   def integerLiteral[_: P]: P[IntegerLiteral] = P(CharIn("0-9").rep(1).!.map(s => IntegerLiteral(s.toInt)))
 
@@ -52,13 +46,27 @@ object CustomLanguageParser {
   def booleanLiteral[_: P]: P[BooleanLiteral] = P(StringIn("true", "false").!.map(s => BooleanLiteral(s.toBoolean)))
 
   // Parse a string literal
-  def stringLiteral[_: P]: P[StringLiteral] = P("\"" ~/ CharsWhile(_ != '\"', 0).! ~ "\"").map(StringLiteral)
+  def stringLiteral[_: P]: P[StringLiteral] = P("\"" ~ CharsWhile(_ != '\"', 0).! ~ "\"").map(StringLiteral)
 
   // Parse a variable reference
   def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z") ~~ CharIn("a-zA-Z0-9").rep).!.map(VariableReference))
 
-  // Parse an expression (either an integer literal, float literal, boolean literal, string literal, or a variable reference)
-  def expression[_: P]: P[Expression] = P(functionCall | floatLiteral | integerLiteral | booleanLiteral | stringLiteral | variableReference)
+  // expression terminators
+  def literal[$: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | variableReference )
+  def parens[$: P]: P[Expression] = P("(" ~/ addSub ~ ")")
+  def factor[$: P]: P[Expression] = P(literal | parens)
+
+  // second precendence
+  def divMul[$: P]: P[Expression] = P(factor ~ (CharIn("*/").! ~/ factor).rep).map {
+    case (l, r) => if (r.length == 0){l} else {Operation(l, r)}
+  }
+
+  // first precendence
+  def addSub[$: P]: P[Expression] = P(divMul ~ (CharIn("+\\-").! ~/ divMul).rep).map {
+    case (l, r) => if (r.length == 0){l} else {Operation(l, r)}
+  }
+  def expression[$: P]: P[Expression] = P(addSub)
+
 
   // Matching a newline
   def newline[_: P]: P[Unit] = P((("\r".? ~ "\n" | "\r") | End).map(_ => ()))
