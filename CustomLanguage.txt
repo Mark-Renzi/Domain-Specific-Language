@@ -24,8 +24,6 @@ else:
         b = 1 + ("asdf" / 3)
         c = (5) + 4
         D = (1+ 1) / 2
-        eD = ((1+ 1) % 2)
+        eD = ((1 + 1))
     a= a
 c=a
-bool comp = "hello" == "world" != "world"
-a = 1 + 1 - 1
