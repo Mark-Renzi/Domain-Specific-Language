@@ -54,11 +54,16 @@ object CustomLanguageParser {
 
   // expression terminators
   def literal[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | variableReference )
-  def parens[_: P]: P[Expression] = P("(" ~/ shift ~ ")")
+  def parens[_: P]: P[Expression] = P("(" ~/ negation ~ ")")
+
+  // e11
   def factor[_: P]: P[Expression] = P(literal | parens)
 
-  // Truth comparisons
-  def truthComparison[_: P]: P[String] = P(StringIn("==", "!=", "<", ">", "<=", ">=").!)
+  // truth comparisons
+  def truComparison[_: P]: P[String] = P(StringIn("!=", "==").!)
+
+  // num comparisons
+  def valComparison[_: P]: P[String] = P(StringIn("<", ">", "<=", ">=").!)
 
   // Binary shift operations
   def binaryShift[_: P]: P[String] = P(StringIn("<<", ">>").!)
@@ -66,35 +71,67 @@ object CustomLanguageParser {
   // Negators
   def negator[_: P]: P[String] = P(CharIn("!~").!)
 
-  // Expression precedence
-  def comparison[_: P]: P[Expression] = P(addSub ~ (truthComparison ~ addSub).rep).map {
+  // e1
+  def truthOr[_: P]: P[Expression] = P(truthAnd ~ ("||".! ~ truthAnd).rep).map {
+    case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
+  }
+
+  // e2
+  def truthAnd[_: P]: P[Expression] = P(bitOr ~ ("&&".! ~ bitOr).rep).map {
+    case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
+  }
+
+  // e3
+  def bitOr[_: P]: P[Expression] = P(bitXor ~ ("|".! ~ bitXor).rep).map {
+    case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
+  }
+
+  // e4
+  def bitXor[_: P]: P[Expression] = P(bitAnd ~ ("^".! ~ bitAnd).rep).map {
+    case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
+  }
+
+
+  // e5
+  def bitAnd[_: P]: P[Expression] = P(truthComparison ~ ("&".! ~ truthComparison).rep).map {
+    case (l, r) => if (r.isEmpty) {l} else {Operation(l, r)}
+  }
+
+  // e6
+  def truthComparison[_: P]: P[Expression] = P(valueComparison ~ (truComparison ~ valueComparison).rep).map {
+    case (l, r) => if (r.isEmpty) {l} else {Operation(l, r)}
+  }
+
+
+  // e7
+  def valueComparison[_: P]: P[Expression] = P(shift ~ (valComparison ~ shift).rep).map {
+    case (l, r) => if (r.isEmpty) {l} else {Operation(l, r)}
+  }
+
+  // e8
+  def shift[_: P]: P[Expression] = P(addSub ~ (binaryShift ~ addSub).rep).map {
     case (l, r) => if (r.isEmpty) { l } else { Operation(l, r) }
   }
 
-  def shift[_: P]: P[Expression] = P(comparison ~ (binaryShift ~ comparison).rep).map {
-    case (l, r) => if (r.isEmpty) { l } else { Operation(l, r) }
-  }
-
-  def power[_: P]: P[Expression] = P(factor ~ (CharIn("^").! ~/ factor).rep).map {
-    case (l, r) => if (r.isEmpty){l} else {Operation(l, r)}
-  }
 
 
-  def negated[_: P]: P[Expression] = P(negator.? ~ power).map {
+  // e0
+  def negation[_: P]: P[Expression] = P(negator.? ~ truthOr).map {
     case (l, r) => if (l.isEmpty){r} else {Negation(l.getOrElse("!"), r)}
   }
 
-  // second precendence
+
+  // e10
   def divMul[_: P]: P[Expression] = P(factor ~ (CharIn("*/%").! ~/ factor).rep).map {
     case (l, r) => if (r.isEmpty){l} else {Operation(l, r)}
   }
 
-  // first precendence
+  // e9
   def addSub[_: P]: P[Expression] = P(divMul ~ (CharIn("+\\-").! ~/ divMul).rep).map {
     case (l, r) => if (r.isEmpty){l} else {Operation(l, r)}
   }
 
-  def expression[_: P]: P[Expression] = P(shift)
+  def expression[_: P]: P[Expression] = P(negation)
 
 
   // Matching a newline
