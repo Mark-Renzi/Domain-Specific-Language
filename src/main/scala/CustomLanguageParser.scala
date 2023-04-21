@@ -18,6 +18,7 @@ case class BooleanLiteral(value: Boolean) extends Expression
 case class StringLiteral(value: String) extends Expression
 case class VariableReference(name: String) extends Expression
 case class Operation(l: Expression, r: Seq[(String, Expression)]) extends Expression
+case class Negation(l: String, r: Expression) extends Expression
 case class FunctionCall(variable:VariableReference, param: Seq[(Expression)]) extends Expression
 
 
@@ -52,20 +53,85 @@ object CustomLanguageParser {
   def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z") ~~ CharIn("a-zA-Z0-9").rep).!.map(VariableReference))
 
   // expression terminators
-  def literal[$: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | variableReference )
-  def parens[$: P]: P[Expression] = P("(" ~/ addSub ~ ")")
-  def factor[$: P]: P[Expression] = P(literal | parens)
+  def literal[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | variableReference )
+  def parens[_: P]: P[Expression] = P("(" ~/ negation ~ ")")
 
-  // second precendence
-  def divMul[$: P]: P[Expression] = P(factor ~ (CharIn("*/").! ~/ factor).rep).map {
-    case (l, r) => if (r.length == 0){l} else {Operation(l, r)}
+  // e11
+  def factor[_: P]: P[Expression] = P(literal | parens)
+
+  // truth comparisons
+  def truComparison[_: P]: P[String] = P(StringIn("!=", "==").!)
+
+  // num comparisons
+  def valComparison[_: P]: P[String] = P(StringIn("<", ">", "<=", ">=").!)
+
+  // Binary shift operations
+  def binaryShift[_: P]: P[String] = P(StringIn("<<", ">>").!)
+
+  // Negators
+  def negator[_: P]: P[String] = P(CharIn("!~").!)
+
+  // e1
+  def truthOr[_: P]: P[Expression] = P(truthAnd ~ ("||".! ~ truthAnd).rep).map {
+    case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
   }
 
-  // first precendence
-  def addSub[$: P]: P[Expression] = P(divMul ~ (CharIn("+\\-").! ~/ divMul).rep).map {
-    case (l, r) => if (r.length == 0){l} else {Operation(l, r)}
+  // e2
+  def truthAnd[_: P]: P[Expression] = P(bitOr ~ ("&&".! ~ bitOr).rep).map {
+    case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
   }
-  def expression[$: P]: P[Expression] = P(addSub)
+
+  // e3
+  def bitOr[_: P]: P[Expression] = P(bitXor ~ ("|".! ~ bitXor).rep).map {
+    case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
+  }
+
+  // e4
+  def bitXor[_: P]: P[Expression] = P(bitAnd ~ ("^".! ~ bitAnd).rep).map {
+    case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
+  }
+
+
+  // e5
+  def bitAnd[_: P]: P[Expression] = P(truthComparison ~ ("&".! ~ truthComparison).rep).map {
+    case (l, r) => if (r.isEmpty) {l} else {Operation(l, r)}
+  }
+
+  // e6
+  def truthComparison[_: P]: P[Expression] = P(valueComparison ~ (truComparison ~ valueComparison).rep).map {
+    case (l, r) => if (r.isEmpty) {l} else {Operation(l, r)}
+  }
+
+
+  // e7
+  def valueComparison[_: P]: P[Expression] = P(shift ~ (valComparison ~ shift).rep).map {
+    case (l, r) => if (r.isEmpty) {l} else {Operation(l, r)}
+  }
+
+  // e8
+  def shift[_: P]: P[Expression] = P(addSub ~ (binaryShift ~ addSub).rep).map {
+    case (l, r) => if (r.isEmpty) { l } else { Operation(l, r) }
+  }
+
+
+
+  // e0
+  def negation[_: P]: P[Expression] = P(negator.? ~ truthOr).map {
+    case (l, r) => if (l.isEmpty){r} else {Negation(l.getOrElse("!"), r)}
+  }
+
+
+  // e10
+  def divMul[_: P]: P[Expression] = P(factor ~ (CharIn("*/%").! ~/ factor).rep).map {
+    case (l, r) => if (r.isEmpty){l} else {Operation(l, r)}
+  }
+
+  // e9
+  def addSub[_: P]: P[Expression] = P(divMul ~ (CharIn("+\\-").! ~/ divMul).rep).map {
+    case (l, r) => if (r.isEmpty){l} else {Operation(l, r)}
+  }
+
+  def expression[_: P]: P[Expression] = P(negation)
 
 
   // Matching a newline
