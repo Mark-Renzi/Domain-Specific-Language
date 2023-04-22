@@ -3,6 +3,7 @@ bool flag = true
 u32 count = 42
 string a = "forty-two"
 a = "zero"
+u32[] myList = {1, 2, 3}
 f32 PI = 3.1415
 u8 myFunc(u32 price, string item):
     u32 amt = price

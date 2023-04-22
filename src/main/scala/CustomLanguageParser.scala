@@ -16,6 +16,7 @@ case class IntegerLiteral(value: Int) extends Expression
 case class FloatLiteral(value: Float) extends Expression
 case class BooleanLiteral(value: Boolean) extends Expression
 case class StringLiteral(value: String) extends Expression
+case class ArrayLiteral( v: Seq[Expression]) extends Expression
 case class VariableReference(name: String) extends Expression
 case class Operation(l: Expression, r: Seq[(String, Expression)]) extends Expression
 case class Negation(l: String, r: Expression) extends Expression
@@ -52,11 +53,14 @@ object CustomLanguageParser {
   // Parse a string literal
   def stringLiteral[_: P]: P[StringLiteral] = P("\"" ~ CharsWhile(_ != '\"', 0).! ~ "\"").map(StringLiteral)
 
+  // parse an array literal
+  def arrayLiteral[_: P]: P[ArrayLiteral] = P("{" ~ (expression).rep(min = 0, sep = ",") ~ "}") .map(ArrayLiteral)
+
   // Parse a variable reference
   def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z") ~~ CharIn("a-zA-Z0-9").rep).!.map(VariableReference))
 
   // expression terminators
-  def literal[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | variableReference )
+  def literal[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | arrayLiteral | variableReference )
   def parens[_: P]: P[Expression] = P("(" ~/ truthOr ~ ")")
 
   // e12
