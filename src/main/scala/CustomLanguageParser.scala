@@ -7,9 +7,9 @@ import scala.io.Source
 sealed trait Ast
 case class Program(statements: Seq[Statement]) extends Ast
 sealed trait Statement extends Ast
-case class VariableDeclaration(variableType: String, variable: String, value: Expression) extends Statement
+case class VariableDeclaration(variableType: VariableType, variable: String, value: Expression) extends Statement
 case class VariableDefinition(variable: Expression, value: Expression) extends Statement
-case class FunctionDeclaration(variableType: String, variable:String, param: Seq[(String, VariableReference)], body: Seq[Statement], ret: Option[Option[Expression]]) extends Statement
+case class FunctionDeclaration(variableType: VariableType, variable:String, param: Seq[(VariableType, VariableReference)], body: Seq[Statement], ret: Option[Option[Expression]]) extends Statement
 case class Conditional(condition: Option[Expression], body: Seq[Statement], next: Seq[Conditional]) extends Statement
 sealed trait Expression extends Ast
 case class IntegerLiteral(value: Int) extends Expression
@@ -20,6 +20,7 @@ case class VariableReference(name: String) extends Expression
 case class Operation(l: Expression, r: Seq[(String, Expression)]) extends Expression
 case class Negation(l: String, r: Expression) extends Expression
 case class FunctionCall(variable:VariableReference, param: Seq[(Expression)]) extends Expression
+case class VariableType(t: String, arr: Integer)
 
 
 // Define the parser
@@ -27,15 +28,17 @@ object CustomLanguageParser {
   import fastparse._, SingleLineWhitespace._
 
   // Parse a variable type
-  def variableType[_: P]: P[String] = P(
+  def variableType[_: P]: P[VariableType] = P(
     StringIn(
       "bool", "string",
       "u8", "u16", "u32", "u64",
       "i8", "i16", "i32", "i64",
       "f32", "f64",
       "void"
-    ).!
-  )
+    ).! ~~ (("[" ~ CharIn("0-9").rep.! ~ "]") | ("[".! ~ "]") ).?
+  ) .map{
+    case (t, a) => if (a.isEmpty) {VariableType(t, -1)} else {VariableType(t, if (a.getOrElse("err").equals("")) {0} else {a.getOrElse("0").toInt} )}
+  }
 
   // Parse an integer literal
   def integerLiteral[_: P]: P[IntegerLiteral] = P(CharIn("0-9").rep(1).!.map(s => IntegerLiteral(s.toInt)))
