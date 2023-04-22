@@ -54,9 +54,9 @@ object CustomLanguageParser {
 
   // expression terminators
   def literal[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | variableReference )
-  def parens[_: P]: P[Expression] = P("(" ~/ negation ~ ")")
+  def parens[_: P]: P[Expression] = P("(" ~/ truthOr ~ ")")
 
-  // e11
+  // e12
   def factor[_: P]: P[Expression] = P(literal | parens)
 
   // truth comparisons
@@ -115,14 +115,14 @@ object CustomLanguageParser {
 
 
 
-  // e0
-  def negation[_: P]: P[Expression] = P(negator.? ~ truthOr).map {
+  // e11
+  def negation[_: P]: P[Expression] = P(negator.? ~ factor).map {
     case (l, r) => if (l.isEmpty){r} else {Negation(l.getOrElse("!"), r)}
   }
 
 
   // e10
-  def divMul[_: P]: P[Expression] = P(factor ~ (CharIn("*/%").! ~/ factor).rep).map {
+  def divMul[_: P]: P[Expression] = P(negation ~ (CharIn("*/%").! ~/ negation).rep).map {
     case (l, r) => if (r.isEmpty){l} else {Operation(l, r)}
   }
 
@@ -131,7 +131,7 @@ object CustomLanguageParser {
     case (l, r) => if (r.isEmpty){l} else {Operation(l, r)}
   }
 
-  def expression[_: P]: P[Expression] = P(negation)
+  def expression[_: P]: P[Expression] = P(truthOr)
 
 
   // Matching a newline
