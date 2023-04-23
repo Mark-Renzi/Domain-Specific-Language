@@ -60,6 +60,21 @@ case class ServerDeclaration(v: VariableReference, url: String, port: Int, proto
 case class Conditional(condition: Option[Expression], body: Seq[Statement], next: Option[Conditional]) extends Statement
 
 /**
+ * Represents a for loop statement
+ * @param variableType The type of the count variable
+ * @param condition The condition of the for loop as an expression
+ * @param body The body of the conditional as a sequence of statements
+ */
+case class ForLoop(ct: Option[VariableType], condition: String, body: Seq[Statement]) extends Statement
+
+/**
+ * Represents a while loop statement
+ * @param condition The condition of the while loop as an expression
+ * @param body The body of the conditional as a sequence of statements
+ */
+case class WhileLoop(condition: Expression, body: Seq[Statement]) extends Statement
+
+/**
  * Represents a Function call as a statement
  * @param func The function call as an expression
  */
@@ -338,7 +353,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Statement
    */
-  def statement[_: P](depth: Int): P[Statement] = (returnStatement | chainDeclaration(depth) | servDef | functionDeclaration(depth) | ifConditional(depth) | variableDeclaration | variableDefinition | functionCallAsStatement)
+  def statement[_: P](depth: Int): P[Statement] = (returnStatement | chainDeclaration(depth) | servDef | functionDeclaration(depth) | ifConditional(depth) | variableDeclaration | variableDefinition | functionCallAsStatement | whileLoop(depth) | forLoop(depth))
 
   /**
    * Parses a function call statement
@@ -448,6 +463,29 @@ object CustomLanguageParser {
   def elseConditional[_: P](depth: Int): P[Conditional] =
     P("else" ~/ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
       case (b) => Conditional(None, b, None)
+    }
+
+  /**
+   * Parses a for loop statement
+   *
+   * @param depth the depth of the statement indentation
+   * @tparam _
+   * @return ForLoop
+   */
+  def forLoop[_: P](depth: Int): P[ForLoop] =
+    P("for" ~/ variableType.? ~ CharsWhile(_ != ':', 0).! ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
+      case (t, c, b) => ForLoop(t, c, b)
+    }
+
+  /**
+   * Parses a while loop statement
+   * @param depth the depth of the statement indentation
+   * @tparam _
+   * @return WhileLoop
+   */
+  def whileLoop[_: P](depth: Int): P[WhileLoop] =
+    P("while" ~/ expression ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
+      case (c, b) => WhileLoop(c, b)
     }
 
   /**

@@ -29,3 +29,15 @@ c=a
 	else:
 		err_report()
 		return -1
+while flag:
+	count = count + 1
+	if count == 42:
+		flag = false
+	else:
+		flag = true
+for u8 i = 0; i < 10; i = i + 1:
+	count = count + 1
+	if count == 42:
+		flag = false
+	else:
+		flag = true
