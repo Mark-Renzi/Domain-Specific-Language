@@ -3,10 +3,11 @@ import fastparse.Parsed._
 import java.nio.file.{Files, Paths}
 import scala.io.Source
 
-// Define the AST data structures
+// AST data structures
 sealed trait Ast
 case class Program(statements: Seq[Statement]) extends Ast
 sealed trait Statement extends Ast
+
 case class VariableDeclaration(variableType: VariableType, variable: String, value: Expression) extends Statement
 case class VariableDefinition(variable: Expression, value: Expression) extends Statement
 case class FunctionDeclaration(variableType: VariableType, variable:String, param: Seq[(VariableType, VariableReference)], body: Seq[Statement], ret: Option[Option[Expression]]) extends Statement
@@ -41,25 +42,54 @@ object CustomLanguageParser {
     case (t, a) => if (a.isEmpty) {VariableType(t, -1)} else {VariableType(t, if (a.getOrElse("err").equals("")) {0} else {a.getOrElse("0").toInt} )}
   }
 
-  // Parse an integer literal
+  /**
+   * Parses an integer literal
+   * @tparam _
+   * @return IntegerLiteral
+   */
   def integerLiteral[_: P]: P[IntegerLiteral] = P(CharIn("0-9").rep(1).!.map(s => IntegerLiteral(s.toInt)))
 
-  // Parse a float literal
+  /**
+   * Parses a float literal
+   * @tparam _
+   * @return FloatLiteral
+   */
   def floatLiteral[_: P]: P[FloatLiteral] = P((CharIn("0-9").rep(1) ~ "." ~ CharIn("0-9").rep(1)).!.map(s => FloatLiteral(s.toFloat)))
 
-  // Parse a boolean literal
+  /**
+   * Parses a boolean literal
+   * @tparam _
+   * @return BooleanLiteral
+   */
   def booleanLiteral[_: P]: P[BooleanLiteral] = P(StringIn("true", "false").!.map(s => BooleanLiteral(s.toBoolean)))
 
-  // Parse a string literal
+  /**
+   * Parses a string literal
+   * @tparam _
+   * @return StringLiteral
+   */
   def stringLiteral[_: P]: P[StringLiteral] = P("\"" ~ CharsWhile(_ != '\"', 0).! ~ "\"").map(StringLiteral)
 
-  // parse an array literal
+  /**
+   * Parses an array literal
+   * @tparam _
+   * @return ArrayLiteral
+   */
   def arrayLiteral[_: P]: P[ArrayLiteral] = P("{" ~ (expression).rep(min = 0, sep = ",") ~ "}") .map(ArrayLiteral)
 
-  // Parse a variable reference
+  /**
+   * Parses a reference to a variable
+   * @tparam _
+   * @return VariableReference
+   */
   def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z") ~~ CharIn("a-zA-Z0-9").rep).!.map(VariableReference))
 
-  // expression terminators
+  //Expression terminators
+  /**
+   * Parses any type of literal
+   * @tparam _
+   * @return Expression
+   */
   def literal[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | arrayLiteral | variableReference )
   def parens[_: P]: P[Expression] = P("(" ~/ truthOr ~ ")")
 
@@ -78,112 +108,188 @@ object CustomLanguageParser {
   // Negators
   def negator[_: P]: P[String] = P(CharIn("!~").!)
 
-  // e1
+  /**
+   * Parses a truth 'or' expression, e1
+   * @tparam _
+   * @return Operation or Expression
+   */
   def truthOr[_: P]: P[Expression] = P(truthAnd ~ ("||".! ~ truthAnd).rep).map {
     case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
   }
 
-  // e2
+  /**
+   * Parses a truth 'and' expression, e2
+   * @tparam _
+   * @return Operation or Expression
+   */
   def truthAnd[_: P]: P[Expression] = P(bitOr ~ ("&&".! ~ bitOr).rep).map {
     case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
   }
 
-  // e3
+  /**
+   * Parses a bitwise 'or' expression, e3
+   * @tparam _
+   * @return Operation or Expression
+   */
   def bitOr[_: P]: P[Expression] = P(bitXor ~ ("|".! ~ bitXor).rep).map {
     case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
   }
 
-  // e4
+  /**
+   * Parses a bitwise 'xor' expression, e4
+   * @tparam _
+   * @return Operation or Expression
+   */
   def bitXor[_: P]: P[Expression] = P(bitAnd ~ ("^".! ~ bitAnd).rep).map {
     case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
   }
 
 
-  // e5
+  /**
+   * Parses a bitwise 'and' expression, e5
+   * @tparam _
+   * @return Operation or Expression
+   */
   def bitAnd[_: P]: P[Expression] = P(truthComparison ~ ("&".! ~ truthComparison).rep).map {
     case (l, r) => if (r.isEmpty) {l} else {Operation(l, r)}
   }
 
-  // e6
+  /**
+   * Parses a truth comparison expression, e6
+   * @tparam _
+   * @return Operation or Expression
+   */
   def truthComparison[_: P]: P[Expression] = P(valueComparison ~ (truComparison ~ valueComparison).rep).map {
     case (l, r) => if (r.isEmpty) {l} else {Operation(l, r)}
   }
 
 
-  // e7
+  /**
+   * Parses a value comparison expression, e7
+   * @tparam _
+   * @return Operation or Expression
+   */
   def valueComparison[_: P]: P[Expression] = P(shift ~ (valComparison ~ shift).rep).map {
     case (l, r) => if (r.isEmpty) {l} else {Operation(l, r)}
   }
 
-  // e8
+  /**
+   * Parses a binary shift operation expression, e8
+   * @tparam _
+   * @return Operation or Expression
+   */
   def shift[_: P]: P[Expression] = P(addSub ~ (binaryShift ~ addSub).rep).map {
     case (l, r) => if (r.isEmpty) { l } else { Operation(l, r) }
   }
 
 
-
-  // e11
+  /**
+   * Parses a logical negation expression, e11
+   * @tparam _
+   * @return Negation or Expression
+   */
   def negation[_: P]: P[Expression] = P(negator.? ~ factor).map {
     case (l, r) => if (l.isEmpty){r} else {Negation(l.getOrElse("!"), r)}
   }
 
 
-  // e10
+  /**
+   * Parses a division or multiplication expression, e10
+   * @tparam _
+   * @return Operation or Expression
+   */
   def divMul[_: P]: P[Expression] = P(negation ~ (CharIn("*/%").! ~/ negation).rep).map {
     case (l, r) => if (r.isEmpty){l} else {Operation(l, r)}
   }
 
-  // e9
+  /**
+   * Parses a addition or subtraction expression, e9
+   * @tparam _
+   * @return Operation or Expression
+   */
   def addSub[_: P]: P[Expression] = P(divMul ~ (CharIn("+\\-").! ~/ divMul).rep).map {
     case (l, r) => if (r.isEmpty){l} else {Operation(l, r)}
   }
 
+  // Beginning of precedence parsing
   def expression[_: P]: P[Expression] = P(truthOr)
 
 
   // Matching a newline
   def newline[_: P]: P[Unit] = P((("\r".? ~ "\n" | "\r") | End).map(_ => ()))
 
-  // Parse a generic statement
+  /**
+   * Parses a generic statement
+   * @tparam _
+   * @return Statement
+   */
   def statement[_: P]: P[Statement] = (functionDeclaration | ifConditional | variableDeclaration | variableDefinition)
 
-  // Parse a variable declaration statement
+  /**
+   * Parses a variable declaration statement
+   * @tparam _
+   * @return VariableDeclaration
+   */
   def variableDeclaration[_: P]: P[VariableDeclaration] =
     P(variableType ~ variableReference ~ "=" ~ expression ~ newline).map {
       case (t, VariableReference(v), e) => VariableDeclaration(t, v, e)
     }
 
-  // Parse a variable redefinition
+  /**
+   * Parses a variable redefinition statement
+   * @tparam _
+   * @return VariableDefinition
+   */
   def variableDefinition[_: P]: P[VariableDefinition] =
     P(variableReference ~ "=" ~ expression ~ newline).map {
       case (v, e) => VariableDefinition(v, e)
     }
-  
-  // Parse a function declaration statement
+
+  /**
+   * Parses a function declaration statement
+   * @tparam _
+   * @return FunctionDeclaration
+   */
   def functionDeclaration[_: P]: P[FunctionDeclaration] =
     P(variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min=0,sep="," ) ~ ")" ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~/ (((" " | "\t").repX(1) ~~ "return") ~/ (expression).? ~ newline).?).map {
       case (t, VariableReference(v), s, b, r) => FunctionDeclaration(t, v, s, b, r)
     }
 
-  // Parse a function call
+  /**
+   * Parses a function call expression
+   * @tparam _
+   * @return FunctionCall
+   */
   def functionCall[_: P]: P[FunctionCall] =
     P(variableReference ~ "(" ~ (expression).rep(min = 0, sep = ",") ~ ")" ).map {
       case (v, s) => FunctionCall(v, s)
     }
-  
-  // Parse an if statement
+
+  /**
+   * Parses an if statement
+   * @tparam _
+   * @return Conditional
+   */
   def ifConditional[_: P]: P[Conditional] =
     P("if" ~/ expression ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~ (elifConditional | elseConditional).repX() ).map {
       case (c, b, n) => Conditional(Some(c), b, n)
     }
 
-  // Parse an elif statement
+  /**
+   * Parses an elif statement
+   * @tparam _
+   * @return Conditional
+   */
   def elifConditional[_: P]: P[Conditional] =
     P("elif" ~/ expression ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~ (elifConditional | elseConditional).repX() ).map {
       case (c, b, n) => Conditional(Some(c), b, n)
     }
-  
-  // Parse an else statment
+
+  /**
+   * Parses an else statement
+   * @tparam _
+   * @return Conditional
+   */
   def elseConditional[_: P]: P[Conditional] =
     P("else" ~/ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX()).map {
       case (b) => Conditional(None, b, Seq[Conditional]())
