@@ -3,7 +3,7 @@ import fastparse.Parsed._
 import java.nio.file.{Files, Paths}
 import scala.io.Source
 
-// AST data structures
+// Abstract syntax tree (AST) data structures
 sealed trait Ast
 case class Program(statements: Seq[Statement]) extends Ast
 sealed trait Statement extends Ast
@@ -457,7 +457,7 @@ object CustomLanguageParser {
 
 object Main {
   def main(args: Array[String]): Unit = {
-    val fileName = "CustomLanguage.txt"
+    val fileName = "CustomLanguage.txt" //name of the file to be parsed from string to AST
     val result = CustomLanguageParser.parseFile(fileName)
 
     result match {
