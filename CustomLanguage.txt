@@ -28,3 +28,10 @@ else:
         eD = !((1 * 1) % 2)
     a= a
 c=a
+@def i32 add_report(u16 reading):
+    bool result = add_data(reading)
+    if (result):
+        return sum_data()
+    else:
+        err_report()
+        return -1
