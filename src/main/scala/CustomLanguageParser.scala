@@ -8,24 +8,132 @@ sealed trait Ast
 case class Program(statements: Seq[Statement]) extends Ast
 sealed trait Statement extends Ast
 
+/**
+ * Represents a variable declaration
+ * @param variableType The type of the variable
+ * @param variable The name of the variable
+ * @param value The value of the variable as an expression
+ */
 case class VariableDeclaration(variableType: VariableType, variable: String, value: Expression) extends Statement
-case class VariableDefinition(variable: Expression, value: Expression) extends Statement
+
+/**
+ * Represents a variable redefinition
+ * @param variable The name of the variable
+ * @param value The new value of the variable as an expression
+ */
+case class VariableDefinition(variableReference: VariableReference, value: Expression) extends Statement
+
+/**
+ * Represents a function declaration
+ * @param variableType The return type of the function
+ * @param variable The name of the function
+ * @param param The parameters of the function as a sequence of tuples of the type and name of the parameter
+ * @param body The body of the function as a sequence of statements
+ */
 case class FunctionDeclaration(variableType: VariableType, variable:String, param: Seq[(VariableType, VariableReference)], body: Seq[Statement]) extends Statement
+
+/**
+ * Represents a chain declaration
+ * @param variableType The return type of the chain
+ * @param variable The name of the chain
+ * @param param The parameters of the chain as a sequence of tuples of the type and name of the parameter
+ * @param body The body of the chain as a sequence of statements
+ */
 case class ChainDeclaration(variableType: VariableType,variable:String,param: Seq[(VariableType, VariableReference)],body: Seq[Statement]) extends Statement
+
+/**
+ * Represents a server declaration
+ * @param v The name of the server
+ * @param url The url of the server
+ * @param port The port of the server
+ * @param functions The functions on the server
+ */
 case class ServerDeclaration(v: VariableReference, url: String, port: Int, functions: Seq[VariableReference]) extends Statement
+
+/**
+ * Represents a conditional statement
+ * @param condition The condition of the conditional as an expression
+ * @param body The body of the conditional as a sequence of statements
+ * @param next The next conditional in the chain as a sequence of conditionals
+ */
 case class Conditional(condition: Option[Expression], body: Seq[Statement], next: Seq[Conditional]) extends Statement
+
+/**
+ * Represents a Function call as a statement
+ * @param func The function call as an expression
+ */
 case class FunctionCallAsStatement(func: FunctionCall) extends Statement
+
 sealed trait Expression extends Ast
+
+/**
+ * Represents an integer literal
+ * @param value The value of the literal
+ */
 case class IntegerLiteral(value: Int) extends Expression
+
+/**
+ * Represents a float literal
+ * @param value The value of the literal
+ */
 case class FloatLiteral(value: Float) extends Expression
+
+/**
+ * Represents a boolean literal
+ * @param value The value of the literal
+ */
 case class BooleanLiteral(value: Boolean) extends Expression
+
+/**
+ * Represents a string literal
+ * @param value The value of the literal
+ */
 case class StringLiteral(value: String) extends Expression
+
+/**
+ * Represents an array literal
+ * @param v The values of the array as a sequence of expressions
+ */
 case class ArrayLiteral( v: Seq[Expression]) extends Expression
+
+/**
+ * Represents a variable reference
+ * @param name The name of the variable
+ */
 case class VariableReference(name: String) extends Expression
+
+/**
+ * Represents an operation
+ * @param l The left hand side of the operation as an expression
+ * @param r The right hand side of the operation as a sequence of tuples of the operator and the expression
+ */
 case class Operation(l: Expression, r: Seq[(String, Expression)]) extends Expression
+
+/**
+ * Represents a negation
+ * @param l The left hand side of the negation, "!"
+ * @param r The right hand side of the negation as an expression
+ */
 case class Negation(l: String, r: Expression) extends Expression
+
+/**
+ * Represents a function call
+ * @param variable The name of the function
+ * @param param The parameters of the function as a sequence of expressions
+ */
 case class FunctionCall(variable:VariableReference, param: Seq[(Expression)]) extends Expression
+
+/**
+ * Represents a chain call
+ * @param v The value of the return, if any; `None` otherwise
+ */
 case class ReturnStatement(v: Option[Expression]) extends Statement
+
+/**
+ * Represents variable type
+ * @param t The type of the variable as a string
+ * @param arr The number of array dimensions, -1 if not an array
+ */
 case class VariableType(t: String, arr: Integer)
 
 
