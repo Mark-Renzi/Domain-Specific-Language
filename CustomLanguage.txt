@@ -12,8 +12,6 @@ def u8 myFunc(u32 price, string item):
     u32 amt = price
 count = 1
 u8 ret = myFunc(count, a)
-if 1 == 1:
-    a = b
 a = price2
 if a == b && a:
     a = c
@@ -21,12 +19,13 @@ elif false:
     b=a
     a=b
 else:
-    if 1 < 2:
-        b = 1 + ("asdf" / 3)
-        c = (5) + 4 == 2 << 2 ^ 2
-        D = (1+ 1) / 2
-        eD = !((1 * 1) % 2)
     a= a
 c=a
+@report_serv = ("devicereport.appoogle.com", 1337, TCP, {@add_data, @err_report, @sum_data, @add_report})
 @def i32 add_report(u16 reading):
-    bool result = add_data(reading)
+	bool result = add_data(reading)
+	if(result):
+		return sum_data()
+	else:
+		err_report()
+		return -1
