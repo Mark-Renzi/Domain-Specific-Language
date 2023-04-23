@@ -46,17 +46,18 @@ case class ChainDeclaration(variableType: VariableType,variable:String,param: Se
  * @param v The name of the server
  * @param url The url of the server
  * @param port The port of the server
+ * @param protocol The communication protocol of the server
  * @param functions The functions on the server
  */
-case class ServerDeclaration(v: VariableReference, url: String, port: Int, functions: Seq[VariableReference]) extends Statement
+case class ServerDeclaration(v: VariableReference, url: String, port: Int, protocol: VariableReference, functions: Seq[VariableReference]) extends Statement
 
 /**
  * Represents a conditional statement
  * @param condition The condition of the conditional as an expression
  * @param body The body of the conditional as a sequence of statements
- * @param next The next conditional in the chain as a sequence of conditionals
+ * @param next The next conditional in the chain, if any; `None` otherwise
  */
-case class Conditional(condition: Option[Expression], body: Seq[Statement], next: Seq[Conditional]) extends Statement
+case class Conditional(condition: Option[Expression], body: Seq[Statement], next: Option[Conditional]) extends Statement
 
 /**
  * Represents a Function call as a statement
@@ -333,10 +334,11 @@ object CustomLanguageParser {
 
   /**
    * Parses a generic statement
+   * @param depth the depth of the statement indentation
    * @tparam _
    * @return Statement
    */
-  def statement[_: P]: P[Statement] = (returnStatement | chainDeclaration | servDef | functionDeclaration | ifConditional | variableDeclaration | variableDefinition | functionCallAsStatement)
+  def statement[_: P](depth: Int): P[Statement] = (returnStatement | chainDeclaration(depth) | servDef | functionDeclaration(depth) | ifConditional(depth) | variableDeclaration | variableDefinition | functionCallAsStatement)
 
   /**
    * Parses a function call statement
@@ -367,21 +369,23 @@ object CustomLanguageParser {
 
   /**
    * Parses a chain declaration statement
+   * @param depth the depth of the statement indentation
    * @tparam _
    * @return ChainDeclaration
    */
-  def chainDeclaration[_: P]: P[ChainDeclaration] =
-    P("@def" ~ variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min = 0,sep = ",") ~ ")" ~ ":" ~ newline ~~ ((" ".repX(min = 1,max = 4) | "\t") ~~ statement).repX()).map {
+  def chainDeclaration[_: P](depth: Int): P[ChainDeclaration] =
+    P("@def" ~ variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min = 0,sep = ",") ~ ")" ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
       case (t,VariableReference(v),s,b) => ChainDeclaration(t,v,s,b)
     }
 
   /**
    * Parses a function declaration statement
+   * @param depth the depth of the statement indentation
    * @tparam _
    * @return FunctionDeclaration
    */
-  def functionDeclaration[_: P]: P[FunctionDeclaration] =
-    P( "def" ~ variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min=0,sep="," ) ~ ")" ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX()).map {
+  def functionDeclaration[_: P](depth: Int): P[FunctionDeclaration] =
+    P( "def" ~ variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min=0,sep="," ) ~ ")" ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
       case (t, VariableReference(v), s, b) => FunctionDeclaration(t, v, s, b)
     }
 
@@ -410,42 +414,48 @@ object CustomLanguageParser {
    * @return Conditional
    */
   def servDef[_: P]: P[ServerDeclaration] =
-    P("@" ~~ variableReference ~ "=" ~ "(" ~ CharIn("a-zA-Z0-9.\\-:/").rep(1).! ~ "," ~ CharIn("0-9").rep(1).! ~ "," ~ "{" ~ ("@" ~~ variableReference ).rep(min = 0, sep = ",") ~ "}" ~ ")").map {
-      case (v,u,p,f) => ServerDeclaration(v,u,p.toInt,f)
+    P("@" ~ variableReference ~ "=" ~ "(" ~ "\"" ~ CharIn("a-zA-Z0-9\\.\\-:/").rep(1).! ~ "\"" ~ "," ~ CharIn("0-9").rep(1).! ~ "," ~ variableReference ~ "," ~ "{" ~ ("@" ~~ variableReference ).rep(min = 0, sep = ",") ~ "}" ~ ")" ~ newline).map {
+      case (v,u,p,prtcl,f) => ServerDeclaration(v,u,p.toInt,prtcl,f)
     }
 
   /**
    * Parses an if statement
+   * @param depth the depth of the statement indentation
    * @tparam _
    * @return Conditional
    */
-  def ifConditional[_: P]: P[Conditional] =
-    P("if" ~/ expression ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~ (elifConditional | elseConditional).repX() ).map {
-      case (c, b, n) => Conditional(Some(c), b, n)
+  def ifConditional[_: P](depth: Int): P[Conditional] =
+    P("if" ~/ expression ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX() ~~ ("    " | "\t").repX(min = depth-1, max = depth-1) ~~ (elifConditional(depth) | elseConditional(depth)) ).map {
+      case (c, b, n) => Conditional(Some(c), b, Some(n))
     }
 
   /**
    * Parses an elif statement
-   * @tparam _
+   * @tparam depth the depth of the statement indentation
    * @return Conditional
    */
-  def elifConditional[_: P]: P[Conditional] =
-    P("elif" ~/ expression ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~ (elifConditional | elseConditional).repX() ).map {
-      case (c, b, n) => Conditional(Some(c), b, n)
+  def elifConditional[_: P](depth: Int): P[Conditional] =
+    P("elif" ~/ expression ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX() ~~ ("    " | "\t").repX(min = depth-1, max = depth-1) ~~ (elifConditional(depth) | elseConditional(depth)) ).map {
+      case (c, b, n) => Conditional(Some(c), b, Some(n))
     }
 
   /**
    * Parses an else statement
+   * @param depth the depth of the statement indentation
    * @tparam _
    * @return Conditional
    */
-  def elseConditional[_: P]: P[Conditional] =
-    P("else" ~/ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX()).map {
-      case (b) => Conditional(None, b, Seq[Conditional]())
+  def elseConditional[_: P](depth: Int): P[Conditional] =
+    P("else" ~/ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
+      case (b) => Conditional(None, b, None)
     }
-  
-  // Parse a program
-  def program[_: P]: P[Program] = P(statement.rep ~ End).map(Program)
+
+  /**
+   * Parses a variable reference
+   * @tparam _
+   * @return
+   */
+  def program[_: P]: P[Program] = P(statement(1).rep ~ End).map(Program)
 
   // Parse a file
   def parseFile(filename: String): Parsed[Program] = {
