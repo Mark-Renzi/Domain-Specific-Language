@@ -349,7 +349,7 @@ object CustomLanguageParser {
 
 
   // Matching a newline
-  def newline[_: P]: P[Unit] = P((("\r".? ~ "\n" | "\r") | End).map(_ => ()))
+  def newline[_: P]: P[Unit] = P((("\r".? ~ "\n" | "\r").rep(1) | End).map(_ => ()))
 
   /**
    * Parses a generic statement
