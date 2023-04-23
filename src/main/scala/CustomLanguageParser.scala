@@ -116,8 +116,9 @@ case class ArrayLiteral( v: Seq[Expression]) extends Expression
 /**
  * Represents a variable reference
  * @param name The name of the variable
+ * @param arrInd The index of the array, if any; -1 otherwise
  */
-case class VariableReference(name: String) extends Expression
+case class VariableReference(name: String, arrInd: Int) extends Expression
 
 /**
  * Represents an operation
@@ -213,7 +214,9 @@ object CustomLanguageParser {
    * @tparam _
    * @return VariableReference
    */
-  def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z_") ~~ CharIn("a-zA-Z0-9_").rep).!.map(VariableReference))
+  def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z_") ~~ CharIn("a-zA-Z0-9_").rep).! ~~ ( "[" ~ integerLiteral ~ "]").? ).map{
+    case (s, i) => if (i.isEmpty) {VariableReference(s, -1)} else {VariableReference(s, i.get.value)}
+  }
 
   //Expression terminators
   /**
@@ -370,7 +373,7 @@ object CustomLanguageParser {
    */
   def variableDeclaration[_: P]: P[VariableDeclaration] =
     P(variableType ~ variableReference ~ "=" ~ expression ~ newline).map {
-      case (t, VariableReference(v), e) => VariableDeclaration(t, v, e)
+      case (t, VariableReference(v, -1), e) => VariableDeclaration(t, v, e)
     }
 
   /**
@@ -391,7 +394,7 @@ object CustomLanguageParser {
    */
   def chainDeclaration[_: P](depth: Int): P[ChainDeclaration] =
     P("@def" ~ variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min = 0,sep = ",") ~ ")" ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
-      case (t,VariableReference(v),s,b) => ChainDeclaration(t,v,s,b)
+      case (t,VariableReference(v, -1),s,b) => ChainDeclaration(t,v,s,b)
     }
 
   /**
@@ -402,7 +405,7 @@ object CustomLanguageParser {
    */
   def functionDeclaration[_: P](depth: Int): P[FunctionDeclaration] =
     P( "def" ~ variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min=0,sep="," ) ~ ")" ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
-      case (t, VariableReference(v), s, b) => FunctionDeclaration(t, v, s, b)
+      case (t, VariableReference(v, -1), s, b) => FunctionDeclaration(t, v, s, b)
     }
 
   /**
@@ -431,7 +434,7 @@ object CustomLanguageParser {
    */
   def servDef[_: P]: P[ServerDeclaration] =
     P("@" ~ variableReference ~ "=" ~ "(" ~ "\"" ~ CharIn("a-zA-Z0-9\\.\\-:/").rep(1).! ~ "\"" ~ "," ~ CharIn("0-9").rep(1).! ~ "," ~ variableReference ~ "," ~ "{" ~ ("@" ~~ variableReference ).rep(min = 0, sep = ",") ~ "}" ~ ")" ~ newline).map {
-      case (v,u,p,VariableReference(prtcl),f) => ServerDeclaration(v,u,p.toInt,prtcl,f)
+      case (v,u,p,VariableReference(prtcl, -1),f) => ServerDeclaration(v,u,p.toInt,prtcl,f)
     }
 
   /**
@@ -480,7 +483,7 @@ object CustomLanguageParser {
 
   def loopVariableDeclaration[_: P]: P[VariableDeclaration] =
     P(variableType ~ variableReference ~ "=" ~ expression).map {
-      case (t,VariableReference(v),e) => VariableDeclaration(t,v,e)
+      case (t,VariableReference(v, -1),e) => VariableDeclaration(t,v,e)
     }
 
   def loopVariableDefinition[_: P]: P[VariableDefinition] =
