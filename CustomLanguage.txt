@@ -3,12 +3,12 @@ bool flag = true
 u32 count = 42
 string a = "forty-two"
 a = "zero"
-u32[] myList = {1, 2, 3}
+u32[] _myList = {1, 2, 3}
 f32 PI = 3.1415
-u8 myFunc(u32 price, string item):
+def u8 myFunc(u32 price, string item):
     u32 amt = price
     return amt
-void myFunction(u32 price, string item):
+@def void myFunction(u32 price, string item):
     u32 amt = price
 count = 1
 u8 ret = myFunc(count, a)

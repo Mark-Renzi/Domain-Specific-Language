@@ -10,6 +10,7 @@ sealed trait Statement extends Ast
 case class VariableDeclaration(variableType: VariableType, variable: String, value: Expression) extends Statement
 case class VariableDefinition(variable: Expression, value: Expression) extends Statement
 case class FunctionDeclaration(variableType: VariableType, variable:String, param: Seq[(VariableType, VariableReference)], body: Seq[Statement], ret: Option[Option[Expression]]) extends Statement
+case class ChainDeclaration(variableType: VariableType,variable:String,param: Seq[(VariableType, VariableReference)],body: Seq[Statement],ret: Option[Option[Expression]]) extends Statement
 case class Conditional(condition: Option[Expression], body: Seq[Statement], next: Seq[Conditional]) extends Statement
 sealed trait Expression extends Ast
 case class IntegerLiteral(value: Int) extends Expression
@@ -57,7 +58,7 @@ object CustomLanguageParser {
   def arrayLiteral[_: P]: P[ArrayLiteral] = P("{" ~ (expression).rep(min = 0, sep = ",") ~ "}") .map(ArrayLiteral)
 
   // Parse a variable reference
-  def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z") ~~ CharIn("a-zA-Z0-9").rep).!.map(VariableReference))
+  def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z_") ~~ CharIn("a-zA-Z0-9_").rep).!.map(VariableReference))
 
   // expression terminators
   def literal[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | arrayLiteral | variableReference )
@@ -120,8 +121,6 @@ object CustomLanguageParser {
     case (l, r) => if (r.isEmpty) { l } else { Operation(l, r) }
   }
 
-
-
   // e11
   def negation[_: P]: P[Expression] = P(negator.? ~ factor).map {
     case (l, r) => if (l.isEmpty){r} else {Negation(l.getOrElse("!"), r)}
@@ -145,7 +144,7 @@ object CustomLanguageParser {
   def newline[_: P]: P[Unit] = P((("\r".? ~ "\n" | "\r") | End).map(_ => ()))
 
   // Parse a generic statement
-  def statement[_: P]: P[Statement] = (functionDeclaration | ifConditional | variableDeclaration | variableDefinition)
+  def statement[_: P]: P[Statement] = (chainDeclaration | functionDeclaration | ifConditional | variableDeclaration | variableDefinition)
 
   // Parse a variable declaration statement
   def variableDeclaration[_: P]: P[VariableDeclaration] =
@@ -158,10 +157,16 @@ object CustomLanguageParser {
     P(variableReference ~ "=" ~ expression ~ newline).map {
       case (v, e) => VariableDefinition(v, e)
     }
-  
+
+  // Parse a server declaration statement
+  def chainDeclaration[_: P]: P[ChainDeclaration] =
+    P("@def" ~ variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min = 0,sep = ",") ~ ")" ~ ":" ~ newline ~~ ((" ".repX(min = 1,max = 4) | "\t") ~~ statement).repX() ~~/ (((" " | "\t").repX(1) ~~ "return") ~/ (expression).? ~ newline).?).map {
+      case (t,VariableReference(v),s,b,r) => ChainDeclaration(t,v,s,b,r)
+    }
+
   // Parse a function declaration statement
   def functionDeclaration[_: P]: P[FunctionDeclaration] =
-    P(variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min=0,sep="," ) ~ ")" ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~/ (((" " | "\t").repX(1) ~~ "return") ~/ (expression).? ~ newline).?).map {
+    P("def" ~ variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min=0,sep="," ) ~ ")" ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~/ (((" " | "\t").repX(1) ~~ "return") ~/ (expression).? ~ newline).?).map {
       case (t, VariableReference(v), s, b, r) => FunctionDeclaration(t, v, s, b, r)
     }
 
