@@ -13,6 +13,7 @@ case class FunctionDeclaration(variableType: VariableType, variable:String, para
 case class ChainDeclaration(variableType: VariableType,variable:String,param: Seq[(VariableType, VariableReference)],body: Seq[Statement]) extends Statement
 case class ServerDeclaration(v: VariableReference, url: String, port: Int, functions: Seq[VariableReference]) extends Statement
 case class Conditional(condition: Option[Expression], body: Seq[Statement], next: Seq[Conditional]) extends Statement
+case class FunctionCallAsStatement(func: FunctionCall) extends Statement
 sealed trait Expression extends Ast
 case class IntegerLiteral(value: Int) extends Expression
 case class FloatLiteral(value: Float) extends Expression
@@ -146,7 +147,9 @@ object CustomLanguageParser {
   def newline[_: P]: P[Unit] = P((("\r".? ~ "\n" | "\r") | End).map(_ => ()))
 
   // Parse a generic statement
-  def statement[_: P]: P[Statement] = (returnStatement | chainDeclaration | servDef | functionDeclaration | ifConditional | variableDeclaration | variableDefinition)
+  def statement[_: P]: P[Statement] = (returnStatement | chainDeclaration | servDef | functionDeclaration | ifConditional | variableDeclaration | variableDefinition | functionCallAsStatement)
+
+  def functionCallAsStatement[_: P]: P[FunctionCallAsStatement] = (functionCall ~ newline).map(FunctionCallAsStatement)
 
   // Parse a variable declaration statement
   def variableDeclaration[_: P]: P[VariableDeclaration] =
