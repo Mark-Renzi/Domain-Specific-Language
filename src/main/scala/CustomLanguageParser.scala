@@ -49,7 +49,7 @@ case class ChainDeclaration(variableType: VariableType,variable:String,param: Se
  * @param protocol The communication protocol of the server
  * @param functions The functions on the server
  */
-case class ServerDeclaration(v: VariableReference, url: String, port: Int, protocol: VariableReference, functions: Seq[VariableReference]) extends Statement
+case class ServerDeclaration(v: VariableReference, url: String, port: Int, protocol: String, functions: Seq[VariableReference]) extends Statement
 
 /**
  * Represents a conditional statement
@@ -61,11 +61,12 @@ case class Conditional(condition: Option[Expression], body: Seq[Statement], next
 
 /**
  * Represents a for loop statement
- * @param variableType The type of the count variable
+ * @param ct The variable declaration of the for loop, if any; `None` otherwise
  * @param condition The condition of the for loop as an expression
+ * @param redefinition The variable redefinition of the for loop, if any; `None` otherwise
  * @param body The body of the conditional as a sequence of statements
  */
-case class ForLoop(ct: Option[VariableType], condition: String, body: Seq[Statement]) extends Statement
+case class ForLoop(ct: Option[VariableDeclaration], condition: Option[Expression], redefinition: Option[VariableDefinition], body: Seq[Statement]) extends Statement
 
 /**
  * Represents a while loop statement
@@ -430,7 +431,7 @@ object CustomLanguageParser {
    */
   def servDef[_: P]: P[ServerDeclaration] =
     P("@" ~ variableReference ~ "=" ~ "(" ~ "\"" ~ CharIn("a-zA-Z0-9\\.\\-:/").rep(1).! ~ "\"" ~ "," ~ CharIn("0-9").rep(1).! ~ "," ~ variableReference ~ "," ~ "{" ~ ("@" ~~ variableReference ).rep(min = 0, sep = ",") ~ "}" ~ ")" ~ newline).map {
-      case (v,u,p,prtcl,f) => ServerDeclaration(v,u,p.toInt,prtcl,f)
+      case (v,u,p,VariableReference(prtcl),f) => ServerDeclaration(v,u,p.toInt,prtcl,f)
     }
 
   /**
@@ -473,8 +474,18 @@ object CustomLanguageParser {
    * @return ForLoop
    */
   def forLoop[_: P](depth: Int): P[ForLoop] =
-    P("for" ~/ variableType.? ~ CharsWhile(_ != ':', 0).! ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
-      case (t, c, b) => ForLoop(t, c, b)
+    P("for" ~/ loopVariableDeclaration.? ~ ";" ~ expression.? ~ ";" ~ loopVariableDefinition.? ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
+      case (t, c, d, b) => ForLoop(t, c, d, b)
+    }
+
+  def loopVariableDeclaration[_: P]: P[VariableDeclaration] =
+    P(variableType ~ variableReference ~ "=" ~ expression).map {
+      case (t,VariableReference(v),e) => VariableDeclaration(t,v,e)
+    }
+
+  def loopVariableDefinition[_: P]: P[VariableDefinition] =
+    P(variableReference ~ "=" ~ expression).map {
+      case (v,e) => VariableDefinition(v,e)
     }
 
   /**
