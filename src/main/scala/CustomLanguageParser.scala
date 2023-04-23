@@ -9,8 +9,11 @@ case class Program(statements: Seq[Statement]) extends Ast
 sealed trait Statement extends Ast
 case class VariableDeclaration(variableType: VariableType, variable: String, value: Expression) extends Statement
 case class VariableDefinition(variable: Expression, value: Expression) extends Statement
-case class FunctionDeclaration(variableType: VariableType, variable:String, param: Seq[(VariableType, VariableReference)], body: Seq[Statement], ret: Option[Option[Expression]]) extends Statement
+case class FunctionDeclaration(variableType: VariableType, variable:String, param: Seq[(VariableType, VariableReference)], body: Seq[Statement]) extends Statement
+case class ChainDeclaration(variableType: VariableType,variable:String,param: Seq[(VariableType, VariableReference)],body: Seq[Statement]) extends Statement
+case class ServerDeclaration(v: VariableReference, url: String, port: Int, functions: Seq[VariableReference]) extends Statement
 case class Conditional(condition: Option[Expression], body: Seq[Statement], next: Seq[Conditional]) extends Statement
+case class FunctionCallAsStatement(func: FunctionCall) extends Statement
 sealed trait Expression extends Ast
 case class IntegerLiteral(value: Int) extends Expression
 case class FloatLiteral(value: Float) extends Expression
@@ -21,6 +24,7 @@ case class VariableReference(name: String) extends Expression
 case class Operation(l: Expression, r: Seq[(String, Expression)]) extends Expression
 case class Negation(l: String, r: Expression) extends Expression
 case class FunctionCall(variable:VariableReference, param: Seq[(Expression)]) extends Expression
+case class ReturnStatement(v: Option[Expression]) extends Statement
 case class VariableType(t: String, arr: Integer)
 
 
@@ -42,10 +46,10 @@ object CustomLanguageParser {
   }
 
   // Parse an integer literal
-  def integerLiteral[_: P]: P[IntegerLiteral] = P(CharIn("0-9").rep(1).!.map(s => IntegerLiteral(s.toInt)))
+  def integerLiteral[_: P]: P[IntegerLiteral] = P((CharIn("\\-").rep(min = 0, max = 1) ~ CharIn("0-9").rep(1)).!.map(s => IntegerLiteral(s.toInt)))
 
   // Parse a float literal
-  def floatLiteral[_: P]: P[FloatLiteral] = P((CharIn("0-9").rep(1) ~ "." ~ CharIn("0-9").rep(1)).!.map(s => FloatLiteral(s.toFloat)))
+  def floatLiteral[_: P]: P[FloatLiteral] = P((CharIn("\\-").rep(min = 0, max = 1) ~ CharIn("0-9").rep(1) ~ "." ~ CharIn("0-9").rep(1)).!.map(s => FloatLiteral(s.toFloat)))
 
   // Parse a boolean literal
   def booleanLiteral[_: P]: P[BooleanLiteral] = P(StringIn("true", "false").!.map(s => BooleanLiteral(s.toBoolean)))
@@ -57,7 +61,7 @@ object CustomLanguageParser {
   def arrayLiteral[_: P]: P[ArrayLiteral] = P("{" ~ (expression).rep(min = 0, sep = ",") ~ "}") .map(ArrayLiteral)
 
   // Parse a variable reference
-  def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z") ~~ CharIn("a-zA-Z0-9").rep).!.map(VariableReference))
+  def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z_") ~~ CharIn("a-zA-Z0-9_").rep).!.map(VariableReference))
 
   // expression terminators
   def literal[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | arrayLiteral | variableReference )
@@ -120,8 +124,6 @@ object CustomLanguageParser {
     case (l, r) => if (r.isEmpty) { l } else { Operation(l, r) }
   }
 
-
-
   // e11
   def negation[_: P]: P[Expression] = P(negator.? ~ factor).map {
     case (l, r) => if (l.isEmpty){r} else {Negation(l.getOrElse("!"), r)}
@@ -145,7 +147,9 @@ object CustomLanguageParser {
   def newline[_: P]: P[Unit] = P((("\r".? ~ "\n" | "\r") | End).map(_ => ()))
 
   // Parse a generic statement
-  def statement[_: P]: P[Statement] = (functionDeclaration | ifConditional | variableDeclaration | variableDefinition)
+  def statement[_: P]: P[Statement] = (returnStatement | chainDeclaration | servDef | functionDeclaration | ifConditional | variableDeclaration | variableDefinition | functionCallAsStatement)
+
+  def functionCallAsStatement[_: P]: P[FunctionCallAsStatement] = (functionCall ~ newline).map(FunctionCallAsStatement)
 
   // Parse a variable declaration statement
   def variableDeclaration[_: P]: P[VariableDeclaration] =
@@ -158,19 +162,36 @@ object CustomLanguageParser {
     P(variableReference ~ "=" ~ expression ~ newline).map {
       case (v, e) => VariableDefinition(v, e)
     }
-  
+
+  // Parse a server declaration statement
+  def chainDeclaration[_: P]: P[ChainDeclaration] =
+    P("@def" ~ variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min = 0,sep = ",") ~ ")" ~ ":" ~ newline ~~ ((" ".repX(min = 1,max = 4) | "\t") ~~ statement).repX()).map {
+      case (t,VariableReference(v),s,b) => ChainDeclaration(t,v,s,b)
+    }
+
   // Parse a function declaration statement
   def functionDeclaration[_: P]: P[FunctionDeclaration] =
-    P(variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min=0,sep="," ) ~ ")" ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~/ (((" " | "\t").repX(1) ~~ "return") ~/ (expression).? ~ newline).?).map {
-      case (t, VariableReference(v), s, b, r) => FunctionDeclaration(t, v, s, b, r)
+    P( "def" ~ variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min=0,sep="," ) ~ ")" ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX()).map {
+      case (t, VariableReference(v), s, b) => FunctionDeclaration(t, v, s, b)
     }
+
+  // parse a return statement
+  def returnStatement[_: P]: P[ReturnStatement] = P("return" ~/ expression.? ~ newline ).map{
+    case a => ReturnStatement(a)
+  }
 
   // Parse a function call
   def functionCall[_: P]: P[FunctionCall] =
     P(variableReference ~ "(" ~ (expression).rep(min = 0, sep = ",") ~ ")" ).map {
       case (v, s) => FunctionCall(v, s)
     }
-  
+
+  // Parse a server declaration
+  def servDef[_: P]: P[ServerDeclaration] =
+    P("@" ~~ variableReference ~ "=" ~ "(" ~ CharIn("a-zA-Z0-9.\\-:/").rep(1).! ~ "," ~ CharIn("0-9").rep(1).! ~ "," ~ "{" ~ ("@" ~~ variableReference ).rep(min = 0, sep = ",") ~ "}" ~ ")").map {
+      case (v,u,p,f) => ServerDeclaration(v,u,p.toInt,f)
+    }
+
   // Parse an if statement
   def ifConditional[_: P]: P[Conditional] =
     P("if" ~/ expression ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~ (elifConditional | elseConditional).repX() ).map {
@@ -182,7 +203,7 @@ object CustomLanguageParser {
     P("elif" ~/ expression ~ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX() ~~ (elifConditional | elseConditional).repX() ).map {
       case (c, b, n) => Conditional(Some(c), b, n)
     }
-  
+
   // Parse an else statment
   def elseConditional[_: P]: P[Conditional] =
     P("else" ~/ ":" ~ newline ~~ ((" ".repX(min=1, max=4) | "\t") ~~ statement).repX()).map {
