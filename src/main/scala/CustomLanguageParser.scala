@@ -166,7 +166,7 @@ object CustomLanguageParser {
   import fastparse._, SingleLineWhitespace._
 
   // Parse a variable type
-  def variableType[_: P]: P[VariableType] = P(
+  private def variableType[_: P]: P[VariableType] = P(
     StringIn(
       "bool", "string",
       "u8", "u16", "u32", "u64",
@@ -184,7 +184,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return IntegerLiteral
    */
-  def integerLiteral[_: P]: P[IntegerLiteral] = P((CharIn("\\-").rep(min = 0, max = 1) ~ CharIn("0-9").rep(1)).!.map(s => IntegerLiteral(s.toInt)))
+  private def integerLiteral[_: P]: P[IntegerLiteral] = P((CharIn("\\-").rep(min = 0, max = 1) ~ CharIn("0-9").rep(1)).!.map(s => IntegerLiteral(s.toInt)))
 
   /**
    * Parses a float literal
@@ -192,35 +192,35 @@ object CustomLanguageParser {
    * @tparam _
    * @return FloatLiteral
    */
-  def floatLiteral[_: P]: P[FloatLiteral] = P((CharIn("\\-").rep(min = 0, max = 1) ~ CharIn("0-9").rep(1) ~ "." ~ CharIn("0-9").rep(1)).!.map(s => FloatLiteral(s.toFloat)))
+  private def floatLiteral[_: P]: P[FloatLiteral] = P((CharIn("\\-").rep(min = 0, max = 1) ~ CharIn("0-9").rep(1) ~ "." ~ CharIn("0-9").rep(1)).!.map(s => FloatLiteral(s.toFloat)))
 
   /**
    * Parses a boolean literal
    * @tparam _
    * @return BooleanLiteral
    */
-  def booleanLiteral[_: P]: P[BooleanLiteral] = P(StringIn("true", "false").!.map(s => BooleanLiteral(s.toBoolean)))
+  private def booleanLiteral[_: P]: P[BooleanLiteral] = P(StringIn("true", "false").!.map(s => BooleanLiteral(s.toBoolean)))
 
   /**
    * Parses a string literal
    * @tparam _
    * @return StringLiteral
    */
-  def stringLiteral[_: P]: P[StringLiteral] = P("\"" ~ CharsWhile(_ != '\"', 0).! ~ "\"").map(StringLiteral)
+  private def stringLiteral[_: P]: P[StringLiteral] = P("\"" ~ CharsWhile(_ != '\"', 0).! ~ "\"").map(StringLiteral)
 
   /**
    * Parses an array literal
    * @tparam _
    * @return ArrayLiteral
    */
-  def arrayLiteral[_: P]: P[ArrayLiteral] = P("{" ~ expression.rep(min = 0, sep = ",") ~ "}") .map(ArrayLiteral)
+  private def arrayLiteral[_: P]: P[ArrayLiteral] = P("{" ~ expression.rep(min = 0, sep = ",") ~ "}") .map(ArrayLiteral)
 
   /**
    * Parses a reference to a variable
    * @tparam _
    * @return VariableReference
    */
-  def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z_") ~~ CharIn("a-zA-Z0-9_").rep).! ~~ ( "[" ~ integerLiteral ~ "]").? ).map{
+  private def variableReference[_: P]: P[VariableReference] = P((CharIn("a-zA-Z_") ~~ CharIn("a-zA-Z0-9_").rep).! ~~ ( "[" ~ integerLiteral ~ "]").? ).map{
     case (s, i) => if (i.isEmpty) {VariableReference(s, -1)} else {VariableReference(s, i.get.value)}
   }
 
@@ -230,30 +230,30 @@ object CustomLanguageParser {
    * @tparam _
    * @return Expression
    */
-  def literal[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | arrayLiteral | variableReference )
-  def parens[_: P]: P[Expression] = P("(" ~/ truthOr ~ ")")
+  private def literal[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | arrayLiteral | variableReference )
+  private def parens[_: P]: P[Expression] = P("(" ~/ truthOr ~ ")")
 
   // e12
-  def factor[_: P]: P[Expression] = P(literal | parens)
+  private def factor[_: P]: P[Expression] = P(literal | parens)
 
   // truth comparisons
-  def truComparison[_: P]: P[String] = P(StringIn("!=", "==").!)
+  private def truComparison[_: P]: P[String] = P(StringIn("!=", "==").!)
 
   // num comparisons
-  def valComparison[_: P]: P[String] = P(StringIn("<", ">", "<=", ">=").!)
+  private def valComparison[_: P]: P[String] = P(StringIn("<", ">", "<=", ">=").!)
 
   // Binary shift operations
-  def binaryShift[_: P]: P[String] = P(StringIn("<<", ">>").!)
+  private def binaryShift[_: P]: P[String] = P(StringIn("<<", ">>").!)
 
   // Negators
-  def negator[_: P]: P[String] = P(CharIn("!~").!)
+  private def negator[_: P]: P[String] = P(CharIn("!~").!)
 
   /**
    * Parses a truth 'or' expression, e1
    * @tparam _
    * @return Operation or Expression
    */
-  def truthOr[_: P]: P[Expression] = P(truthAnd ~ ("||".! ~ truthAnd).rep).map {
+  private def truthOr[_: P]: P[Expression] = P(truthAnd ~ ("||".! ~ truthAnd).rep).map {
     case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
   }
 
@@ -262,7 +262,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Operation or Expression
    */
-  def truthAnd[_: P]: P[Expression] = P(bitOr ~ ("&&".! ~ bitOr).rep).map {
+  private def truthAnd[_: P]: P[Expression] = P(bitOr ~ ("&&".! ~ bitOr).rep).map {
     case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
   }
 
@@ -271,7 +271,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Operation or Expression
    */
-  def bitOr[_: P]: P[Expression] = P(bitXor ~ ("|".! ~ bitXor).rep).map {
+  private def bitOr[_: P]: P[Expression] = P(bitXor ~ ("|".! ~ bitXor).rep).map {
     case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
   }
 
@@ -280,7 +280,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Operation or Expression
    */
-  def bitXor[_: P]: P[Expression] = P(bitAnd ~ ("^".! ~ bitAnd).rep).map {
+  private def bitXor[_: P]: P[Expression] = P(bitAnd ~ ("^".! ~ bitAnd).rep).map {
     case (l,r) => if(r.isEmpty) {l} else {Operation(l,r)}
   }
 
@@ -290,7 +290,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Operation or Expression
    */
-  def bitAnd[_: P]: P[Expression] = P(truthComparison ~ ("&".! ~ truthComparison).rep).map {
+  private def bitAnd[_: P]: P[Expression] = P(truthComparison ~ ("&".! ~ truthComparison).rep).map {
     case (l, r) => if (r.isEmpty) {l} else {Operation(l, r)}
   }
 
@@ -299,7 +299,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Operation or Expression
    */
-  def truthComparison[_: P]: P[Expression] = P(valueComparison ~ (truComparison ~ valueComparison).rep).map {
+  private def truthComparison[_: P]: P[Expression] = P(valueComparison ~ (truComparison ~ valueComparison).rep).map {
     case (l, r) => if (r.isEmpty) {l} else {Operation(l, r)}
   }
 
@@ -309,7 +309,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Operation or Expression
    */
-  def valueComparison[_: P]: P[Expression] = P(shift ~ (valComparison ~ shift).rep).map {
+  private def valueComparison[_: P]: P[Expression] = P(shift ~ (valComparison ~ shift).rep).map {
     case (l, r) => if (r.isEmpty) {l} else {Operation(l, r)}
   }
 
@@ -318,7 +318,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Operation or Expression
    */
-  def shift[_: P]: P[Expression] = P(addSub ~ (binaryShift ~ addSub).rep).map {
+  private def shift[_: P]: P[Expression] = P(addSub ~ (binaryShift ~ addSub).rep).map {
     case (l, r) => if (r.isEmpty) { l } else { Operation(l, r) }
   }
 
@@ -327,7 +327,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Negation or Expression
    */
-  def negation[_: P]: P[Expression] = P(negator.? ~ factor).map {
+  private def negation[_: P]: P[Expression] = P(negator.? ~ factor).map {
     case (l, r) => if (l.isEmpty){r} else {Negation(l.getOrElse("!"), r)}
   }
 
@@ -337,7 +337,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Operation or Expression
    */
-  def divMul[_: P]: P[Expression] = P(negation ~ (CharIn("*/%").! ~/ negation).rep).map {
+  private def divMul[_: P]: P[Expression] = P(negation ~ (CharIn("*/%").! ~/ negation).rep).map {
     case (l, r) => if (r.isEmpty){l} else {Operation(l, r)}
   }
 
@@ -346,23 +346,23 @@ object CustomLanguageParser {
    * @tparam _
    * @return Operation or Expression
    */
-  def addSub[_: P]: P[Expression] = P(divMul ~ (CharIn("+\\-").! ~/ divMul).rep).map {
+  private def addSub[_: P](): P[Expression] = P(divMul ~ (CharIn("+\\-").! ~/ divMul).rep).map {
     case (l, r) => if (r.isEmpty){l} else {Operation(l, r)}
   }
 
   // Beginning of precedence parsing
-  def expression[_: P]: P[Expression] = P(truthOr)
+  private def expression[_: P]: P[Expression] = P(truthOr)
 
 
   // Matching a newline
-  def newline[_: P]: P[Unit] = P(((("\r".? ~ "\n" | "\r") | comment ).rep(1) | End).map(_ => ()))
+  private def newline[_: P]: P[Unit] = P(((("\r".? ~ "\n" | "\r") | comment ).rep(1) | End).map(_ => ()))
 
   /**
    * Parses comments and comsumes them
    * @tparam _
    * @return Unit
    */
-  def comment[_: P]: P[Unit] = P((("/*" ~/ (!"*/" ~ AnyChar).rep ~ "*/") ~ newline.rep(0)) | ("//" ~/ (!"\r\n" ~ AnyChar).rep) ~ newline)
+  private def comment[_: P]: P[Unit] = P((("/*" ~/ (!"*/" ~ AnyChar).rep ~ "*/") ~ newline.rep(0)) | ("//" ~/ (!"\r\n" ~ AnyChar).rep) ~ newline)
 
   /**
    * Parses a generic statement
@@ -370,21 +370,21 @@ object CustomLanguageParser {
    * @tparam _
    * @return Statement
    */
-  def statement[_: P](depth: Int): P[Statement] = returnStatement | includeStatement | chainDeclaration(depth) | servDef | functionDeclaration(depth) | ifConditional(depth) | variableDeclaration | variableDefinition | functionCallAsStatement | whileLoop(depth) | forLoop(depth)
+  private def statement[_: P](depth: Int): P[Statement] = returnStatement | includeStatement | chainDeclaration(depth) | servDef | functionDeclaration(depth) | ifConditional(depth) | variableDeclaration | variableDefinition | functionCallAsStatement | whileLoop(depth) | forLoop(depth)
 
   /**
    * Parses a function call statement
    * @tparam _
    * @return FunctionCallAsStatement
    */
-  def functionCallAsStatement[_: P]: P[FunctionCallAsStatement] = (functionCall ~ newline).map(FunctionCallAsStatement)
+  private def functionCallAsStatement[_: P]: P[FunctionCallAsStatement] = (functionCall ~ newline).map(FunctionCallAsStatement)
 
   /**
    * Parses a function call statement
    * @tparam _
    * @return FunctionCallAsStatement
    */
-  def includeStatement[_: P]: P[Include] = ("include" ~ stringLiteral ~ newline).map {
+  private def includeStatement[_: P]: P[Include] = ("include" ~ stringLiteral ~ newline).map {
     case StringLiteral(i) => Include(i)
   }
 
@@ -393,7 +393,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return VariableDeclaration
    */
-  def variableDeclaration[_: P]: P[VariableDeclaration] =
+  private def variableDeclaration[_: P]: P[VariableDeclaration] =
     P(variableType ~ variableReference ~ "=" ~ expression ~ newline).map {
       case (t, VariableReference(v, -1), e) => VariableDeclaration(t, v, e)
     }
@@ -403,7 +403,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return VariableDefinition
    */
-  def variableDefinition[_: P]: P[VariableDefinition] =
+  private def variableDefinition[_: P]: P[VariableDefinition] =
     P(variableReference ~ "=" ~ expression ~ newline).map {
       case (v, e) => VariableDefinition(v, e)
     }
@@ -414,7 +414,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return ChainDeclaration
    */
-  def chainDeclaration[_: P](depth: Int): P[ChainDeclaration] =
+  private def chainDeclaration[_: P](depth: Int): P[ChainDeclaration] =
     P("@def" ~ variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min = 0,sep = ",") ~ ")" ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
       case (t,VariableReference(v, -1),s,b) => ChainDeclaration(t,v,s,b)
     }
@@ -425,7 +425,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return FunctionDeclaration
    */
-  def functionDeclaration[_: P](depth: Int): P[FunctionDeclaration] =
+  private def functionDeclaration[_: P](depth: Int): P[FunctionDeclaration] =
     P( "def" ~ variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min=0,sep="," ) ~ ")" ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
       case (t, VariableReference(v, -1), s, b) => FunctionDeclaration(t, v, s, b)
     }
@@ -435,17 +435,15 @@ object CustomLanguageParser {
    * @tparam _
    * @return ReturnStatement
    */
-  def returnStatement[_: P]: P[ReturnStatement] = P("return" ~/ expression.? ~ newline ).map{
-    case a => ReturnStatement(a)
-  }
+  private def returnStatement[_: P]: P[ReturnStatement] = P("return" ~/ expression.? ~ newline ).map (a => ReturnStatement(a))
 
   /**
    * Parses a function call expression
    * @tparam _
    * @return FunctionCall
    */
-  def functionCall[_: P]: P[FunctionCall] =
-    P(variableReference ~ "(" ~ (expression).rep(min = 0, sep = ",") ~ ")" ).map {
+  private def functionCall[_: P]: P[FunctionCall] =
+    P(variableReference ~ "(" ~ expression.rep(min = 0, sep = ",") ~ ")" ).map {
       case (v, s) => FunctionCall(v, s)
     }
 
@@ -454,7 +452,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Conditional
    */
-  def servDef[_: P]: P[ServerDeclaration] =
+  private def servDef[_: P]: P[ServerDeclaration] =
     P("@" ~ variableReference ~ "=" ~ "(" ~ "\"" ~ CharIn("a-zA-Z0-9\\.\\-:/").rep(1).! ~ "\"" ~ "," ~ CharIn("0-9").rep(1).! ~ "," ~ variableReference ~ "," ~ "{" ~ ("@" ~~ variableReference ).rep(min = 0, sep = ",") ~ "}" ~ ")" ~ newline).map {
       case (v,u,p,VariableReference(prtcl, -1),f) => ServerDeclaration(v,u,p.toInt,prtcl,f)
     }
@@ -465,7 +463,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Conditional
    */
-  def ifConditional[_: P](depth: Int): P[Conditional] =
+  private def ifConditional[_: P](depth: Int): P[Conditional] =
     P("if" ~/ expression ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX() ~~ ("    " | "\t").repX(min = depth-1, max = depth-1) ~~ (elifConditional(depth) | elseConditional(depth)) ).map {
       case (c, b, n) => Conditional(Some(c), b, Some(n))
     }
@@ -476,7 +474,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Conditional
    */
-  def elifConditional[_: P](depth: Int): P[Conditional] =
+  private def elifConditional[_: P](depth: Int): P[Conditional] =
     P("elif" ~/ expression ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX() ~~ ("    " | "\t").repX(min = depth-1, max = depth-1) ~~ (elifConditional(depth) | elseConditional(depth)) ).map {
       case (c, b, n) => Conditional(Some(c), b, Some(n))
     }
@@ -487,7 +485,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Conditional
    */
-  def elseConditional[_: P](depth: Int): P[Conditional] =
+  private def elseConditional[_: P](depth: Int): P[Conditional] =
     P("else" ~/ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map(b => Conditional(None,b,None))
 
   /**
@@ -497,17 +495,17 @@ object CustomLanguageParser {
    * @tparam _
    * @return ForLoop
    */
-  def forLoop[_: P](depth: Int): P[ForLoop] =
+  private def forLoop[_: P](depth: Int): P[ForLoop] =
     P("for" ~/ loopVariableDeclaration.? ~ ";" ~ expression.? ~ ";" ~ loopVariableDefinition.? ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
       case (t, c, d, b) => ForLoop(t, c, d, b)
     }
 
-  def loopVariableDeclaration[_: P]: P[VariableDeclaration] =
+  private def loopVariableDeclaration[_: P]: P[VariableDeclaration] =
     P(variableType ~ variableReference ~ "=" ~ expression).map {
       case (t,VariableReference(v, -1),e) => VariableDeclaration(t,v,e)
     }
 
-  def loopVariableDefinition[_: P]: P[VariableDefinition] =
+  private def loopVariableDefinition[_: P]: P[VariableDefinition] =
     P(variableReference ~ "=" ~ expression).map {
       case (v,e) => VariableDefinition(v,e)
     }
@@ -518,7 +516,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return WhileLoop
    */
-  def whileLoop[_: P](depth: Int): P[WhileLoop] =
+  private def whileLoop[_: P](depth: Int): P[WhileLoop] =
     P("while" ~/ expression ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
       case (c, b) => WhileLoop(c, b)
     }
@@ -528,7 +526,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return
    */
-  def program[_: P]: P[Program] = P(newline.? ~ statement(1).rep ~ End).map(Program)
+  private def program[_: P]: P[Program] = P(newline.? ~ statement(1).rep ~ End).map(Program)
 
   // Parse a file
   def parseFile(filename: String): Parsed[Program] = {
