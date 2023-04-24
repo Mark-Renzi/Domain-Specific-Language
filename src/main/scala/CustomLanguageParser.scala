@@ -18,7 +18,7 @@ case class VariableDeclaration(variableType: VariableType, variable: String, val
 
 /**
  * Represents a variable redefinition
- * @param variable The name of the variable
+ * @param variableReference The name of the variable
  * @param value The new value of the variable as an expression
  */
 case class VariableDefinition(variableReference: VariableReference, value: Expression) extends Statement
@@ -145,7 +145,7 @@ case class Negation(l: String, r: Expression) extends Expression
  * @param variable The name of the function
  * @param param The parameters of the function as a sequence of expressions
  */
-case class FunctionCall(variable:VariableReference, param: Seq[(Expression)]) extends Expression
+case class FunctionCall(variable:VariableReference, param: Seq[Expression]) extends Expression
 
 /**
  * Represents a chain call
@@ -213,7 +213,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return ArrayLiteral
    */
-  def arrayLiteral[_: P]: P[ArrayLiteral] = P("{" ~ (expression).rep(min = 0, sep = ",") ~ "}") .map(ArrayLiteral)
+  def arrayLiteral[_: P]: P[ArrayLiteral] = P("{" ~ expression.rep(min = 0, sep = ",") ~ "}") .map(ArrayLiteral)
 
   /**
    * Parses a reference to a variable
@@ -370,7 +370,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return Statement
    */
-  def statement[_: P](depth: Int): P[Statement] = (returnStatement | includeStatement | chainDeclaration(depth) | servDef | functionDeclaration(depth) | ifConditional(depth) | variableDeclaration | variableDefinition | functionCallAsStatement | whileLoop(depth) | forLoop(depth))
+  def statement[_: P](depth: Int): P[Statement] = returnStatement | includeStatement | chainDeclaration(depth) | servDef | functionDeclaration(depth) | ifConditional(depth) | variableDeclaration | variableDefinition | functionCallAsStatement | whileLoop(depth) | forLoop(depth)
 
   /**
    * Parses a function call statement
@@ -385,7 +385,7 @@ object CustomLanguageParser {
    * @return FunctionCallAsStatement
    */
   def includeStatement[_: P]: P[Include] = ("include" ~ stringLiteral ~ newline).map {
-    case (StringLiteral(i)) => Include(i)
+    case StringLiteral(i) => Include(i)
   }
 
   /**
@@ -472,7 +472,8 @@ object CustomLanguageParser {
 
   /**
    * Parses an elif statement
-   * @tparam depth the depth of the statement indentation
+   * @param depth the depth of the statement indentation
+   * @tparam _
    * @return Conditional
    */
   def elifConditional[_: P](depth: Int): P[Conditional] =
@@ -487,9 +488,7 @@ object CustomLanguageParser {
    * @return Conditional
    */
   def elseConditional[_: P](depth: Int): P[Conditional] =
-    P("else" ~/ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
-      case (b) => Conditional(None, b, None)
-    }
+    P("else" ~/ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map(b => Conditional(None,b,None))
 
   /**
    * Parses a for loop statement
