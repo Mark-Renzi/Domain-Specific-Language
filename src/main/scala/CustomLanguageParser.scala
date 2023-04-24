@@ -355,7 +355,7 @@ object CustomLanguageParser {
 
 
   // Matching a newline
-  def newline[_: P]: P[Unit] = P((("\r".? ~ "\n" | "\r").rep(1) | End).map(_ => ()))
+  def newline[_: P]: P[Unit] = P(((("\r".? ~ "\n" | "\r") | comment ).rep(1) | End).map(_ => ()))
 
   /**
    * Parses comments and comsumes them
