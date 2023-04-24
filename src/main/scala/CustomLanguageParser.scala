@@ -1,4 +1,8 @@
+package com.github.markrenzi.dsl
+
 import fastparse.Parsed._
+
+import java.nio.file.{Files, Paths}
 import scala.io.Source
 
 // Abstract syntax tree (AST) data structures
@@ -68,8 +72,9 @@ case class ServerDeclaration(v: VariableReference, url: String, port: Int, proto
  * @param condition The condition of the conditional as an expression
  * @param body The body of the conditional as a sequence of statements
  * @param next The next conditional in the chain, if any; `None` otherwise
+ * @param previousIsIf the current condition is elif; `None` otherwise
  */
-case class Conditional(condition: Option[Expression], body: Seq[Statement], next: Option[Conditional]) extends Statement
+case class Conditional(condition: Option[Expression], body: Seq[Statement], next: Option[Conditional], previousIsIf: Option[Boolean] = None) extends Statement
 
 /**
  * Represents a for loop statement
@@ -459,7 +464,7 @@ object CustomLanguageParser {
    */
   private def elifConditional[_: P](depth: Int): P[Conditional] =
     P("elif" ~/ expression ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX() ~~ ("    " | "\t").repX(min = depth-1, max = depth-1) ~~ (elifConditional(depth) | elseConditional(depth)) ).map {
-      case (c, b, n) => Conditional(Some(c), b, Some(n))
+      case (c, b, n) => Conditional(Some(c), b, Some(n), Some(true))
     }
 
   /**
@@ -524,6 +529,14 @@ object Main {
       case Success(ast, _) =>
         println(s"Parsing '$fileName' succeeded:")
         println(ast)
+
+        val generator = new CodeGenerator()
+        val cCode = generator.visit(ast)
+        println(cCode)
+        
+        val outputPath = "outputC.c"
+        Files.write(Paths.get(outputPath),cCode.getBytes)
+
       case f: Failure =>
         println(s"Parsing '$fileName' failed:")
         println(f.trace().longAggregateMsg)
