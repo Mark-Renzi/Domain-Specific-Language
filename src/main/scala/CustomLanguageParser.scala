@@ -81,6 +81,12 @@ case class WhileLoop(condition: Expression, body: Seq[Statement]) extends Statem
  */
 case class FunctionCallAsStatement(func: FunctionCall) extends Statement
 
+/**
+ * Represents and include statement
+ * @param path The function call as an expression
+ */
+case class Include(path: String) extends Statement
+
 sealed trait Expression extends Ast
 
 /**
@@ -352,12 +358,19 @@ object CustomLanguageParser {
   def newline[_: P]: P[Unit] = P((("\r".? ~ "\n" | "\r").rep(1) | End).map(_ => ()))
 
   /**
+   * Parses comments and comsumes them
+   * @tparam _
+   * @return Unit
+   */
+  def comment[_: P]: P[Unit] = P((("/*" ~/ (!"*/" ~ AnyChar).rep ~ "*/") ~ newline.rep(0)) | ("//" ~/ (!"\r\n" ~ AnyChar).rep) ~ newline)
+
+  /**
    * Parses a generic statement
    * @param depth the depth of the statement indentation
    * @tparam _
    * @return Statement
    */
-  def statement[_: P](depth: Int): P[Statement] = (returnStatement | chainDeclaration(depth) | servDef | functionDeclaration(depth) | ifConditional(depth) | variableDeclaration | variableDefinition | functionCallAsStatement | whileLoop(depth) | forLoop(depth))
+  def statement[_: P](depth: Int): P[Statement] = (returnStatement | includeStatement | chainDeclaration(depth) | servDef | functionDeclaration(depth) | ifConditional(depth) | variableDeclaration | variableDefinition | functionCallAsStatement | whileLoop(depth) | forLoop(depth))
 
   /**
    * Parses a function call statement
@@ -365,6 +378,15 @@ object CustomLanguageParser {
    * @return FunctionCallAsStatement
    */
   def functionCallAsStatement[_: P]: P[FunctionCallAsStatement] = (functionCall ~ newline).map(FunctionCallAsStatement)
+
+  /**
+   * Parses a function call statement
+   * @tparam _
+   * @return FunctionCallAsStatement
+   */
+  def includeStatement[_: P]: P[Include] = ("include" ~ stringLiteral ~ newline).map {
+    case (StringLiteral(i)) => Include(i)
+  }
 
   /**
    * Parses a variable declaration statement
@@ -507,7 +529,7 @@ object CustomLanguageParser {
    * @tparam _
    * @return
    */
-  def program[_: P]: P[Program] = P(statement(1).rep ~ End).map(Program)
+  def program[_: P]: P[Program] = P(newline.? ~ statement(1).rep ~ End).map(Program)
 
   // Parse a file
   def parseFile(filename: String): Parsed[Program] = {
