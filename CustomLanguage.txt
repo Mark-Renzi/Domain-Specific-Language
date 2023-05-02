@@ -23,9 +23,10 @@ def u8 myFunc(u32 price, string item):
 
 count = 1
 u8 ret = myFunc(count, a)
-a = price2
-
-if a == b && a:
+//a = price2
+string b = "one"
+string c = "two"
+if a == b:
     a = c
 elif false:
     b=a

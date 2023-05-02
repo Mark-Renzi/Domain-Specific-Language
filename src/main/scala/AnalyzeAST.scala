@@ -18,11 +18,17 @@ class Environment(val parent: Option[Environment]){ //TODO NEW SCOPE STUFF
     def checkType(id: String): VariableType = 
         if( E.contains(id)) {
             return E(id)
-        } else if(parent != None && parent.getOrElse(new Environment(None)).checkType(id)!=VariableType("void", -1)){
-            return parent.getOrElse(new Environment(None)).checkType(id)
+        } else {
+            return parent match {
+                case Some(p) => p.checkType(id)
+                case None => VariableType("void", 0)
+            }
         }
-        else {
-            return VariableType("void", -1)
+    
+    def getParent(): Environment = 
+        return parent match {
+            case Some(p) => p
+            case None => new Environment(None)
         }
 
 }
@@ -58,6 +64,7 @@ class FunctionEnvironment{
 class ASTAnalyzer extends TypeVisitor {
     var E = new Environment(None)
     var F = new FunctionEnvironment()
+    var Ep = E
 
   def matches(t1: VariableType, t2: VariableType, op: String): Boolean = {
     val equalTypes:List[String] = List("u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64", "bool", "string")
@@ -209,25 +216,26 @@ class ASTAnalyzer extends TypeVisitor {
     case arr: ArrayLiteral => 
         val types = arr.v.map(visit)
         println(types)
-        VariableType("void",-1) //
-    case vr: VariableReference => E.checkType(vr.name) 
+        VariableType("void", 0) //
+    case vr: VariableReference => Ep.checkType(vr.name)
     case op: Operation =>
       val left = visit(op.l)
       val right = op.r.map { case (oper, expr) =>visit(expr) }.head
       if(matches(left, right, op.r.map { case (oper, expr) =>oper }.head)){
-        left
+        resultType(left, right, op.r.map { case (oper, expr) =>oper }.head)
       } else{
-        throw new RuntimeException(s"Type missmatch in operation: $node, $left, $right")
+        throw new RuntimeException(s"Type mismatch in operation: $node, $left, $right")
       }
     case num: IntegerLiteral => VariableType("i64", -1)
     case flt: FloatLiteral => VariableType("f64", -1)
     case neg: Negation => visit(neg.r)  //
     case fc: FunctionCall =>
+
       val paramTypes = fc.param.map(visit) //
-      val existingType = E.checkType(fc.variable.name)
-      if(existingType == VariableType("void",-1)){
+      val existingType = F.checkType(fc.variable.name)
+      if(existingType == VariableType("void", 0)){
         throw new RuntimeException(s"Function has not been declared yet: $node")
-        return VariableType("void",-1)
+        return VariableType("void", 0)
       } 
       existingType
     case _ => throw new RuntimeException(s"Unsupported node type: $node")
@@ -237,68 +245,75 @@ class ASTAnalyzer extends TypeVisitor {
   def visit(node: Statement): VariableType = {
     node match {
       case retStmt: ReturnStatement =>
-        VariableType("void", -1)
+        VariableType("void", 0)
       case varDecl: VariableDeclaration =>
-        val existing_type = E.checkType(varDecl.variable)
-        if(existing_type == VariableType("void",-1)){
-            E.addVar(varDecl.variable, varDecl.variableType)
+        val existing_type = Ep.checkType(varDecl.variable)
+        if(existing_type == VariableType("void", 0)){
+            Ep.addVar(varDecl.variable, varDecl.variableType)
         } else{
             throw new RuntimeException(s"Trying to declare already declared variable: $node")
-            return VariableType("void",-1)
+            return VariableType("void", 0)
         }
         val exprType = visit(varDecl.value)
         if(!matches(varDecl.variableType,exprType,"=")){
-            throw new RuntimeException(s"Type missmatch in variable declaration: $node, $varDecl.variableType, $exprType")
+            throw new RuntimeException(s"Type mismatch in variable declaration: $node, $varDecl.variableType, $exprType")
             
         }
-        VariableType("void",-1)
+        VariableType("void", 0)
       case varDef: VariableDefinition =>
         val exprType = visit(varDef.value)
-        val varType = E.checkType(varDef.variableReference.name)
-        if(varType == VariableType("void",-1)){
+        val varType = Ep.checkType(varDef.variableReference.name)
+        if(varType == VariableType("void", 0)){
             throw new RuntimeException(s"Variable has not been declared yet: $node")
-            return VariableType("void",-1)
+            return VariableType("void", 0)
         } 
         if(!matches(varType, exprType,"=")){
-            throw new RuntimeException(s"Type missmatch in variable redefinition: $node, $varType, $exprType")
-            return VariableType("void",-1)
+            throw new RuntimeException(s"Type mismatch in variable redefinition: $node, $varType, $exprType")
+            return VariableType("void", 0)
         }
-        VariableType("void",-1)
+        VariableType("void", 0)
 
       case funcDecl: FunctionDeclaration =>
-        if(F.checkType(funcDecl.variable) == VariableType("void",0)){
+        if(F.checkType(funcDecl.variable) == VariableType("void", 0)){
             val params = funcDecl.param.map { case (varType,varRef) => s"${visit(varType)} ${visit(varRef)}" }
             F.addFunc(funcDecl.variable, new FunctionSignature(funcDecl.variableType, funcDecl.param))
         } else{
             throw new RuntimeException(s"Trying to declare already declared function: $node")
-            return VariableType("void",-1)
+            return VariableType("void", 0)
         }
         // Step into new scope for function
-        
+        Ep = new Environment(Option(E))
+        funcDecl.param.foreach(tup => Ep.addVar(tup._2.name, tup._1))
         val body = funcDecl.body.map(visit)
-
+        Ep = Ep.getParent()
         funcDecl.variableType
       // Add other cases for different Statement types
       case cond: Conditional =>
-        val condition = visit(cond.condition.getOrElse(throw new RuntimeException(s"Type missmatch in conditional: $node")))
+        val condition = visit(cond.condition.getOrElse(throw new RuntimeException(s"Type mismatch in conditional: $node")))
+        Ep = new Environment(Option(Ep))    // create child environment
         val body = cond.body.map(visit)
+        Ep = Ep.getParent()                 // pop to child's parent
         val next = cond.next.map(visit)
-        VariableType("void",-1)
+        VariableType("void", 0)
       case forLoop: ForLoop =>
+        Ep = new Environment(Option(Ep))
         val init = forLoop.ct.map(visit).getOrElse("")
-        val condition = forLoop.condition.map(visit).getOrElse(throw new RuntimeException(s"Type missmatch in conditional: $node"))
+        val condition = forLoop.condition.map(visit).getOrElse(throw new RuntimeException(s"Type mismatch in conditional: $node"))
         val increment = forLoop.redefinition.map(visit).getOrElse("")
         val body = forLoop.body.map(visit)
-        VariableType("void",-1)
+        Ep = Ep.getParent()
+        VariableType("void", 0)
       case whileLoop: WhileLoop =>
         val condition = visit(whileLoop.condition)
+        Ep = new Environment(Option(Ep))
         val body = whileLoop.body.map(visit).mkString("\n")
-        VariableType("void",-1)
+        Ep = Ep.getParent()
+        VariableType("void", 0)
       case funcCallStmt: FunctionCallAsStatement =>
         visit(funcCallStmt.func)
       case includeStmt: Include =>
-        VariableType("void",-1)
-      case _ => VariableType("void",-1)
+        VariableType("void", 0)
+      case _ => VariableType("void", 0)
     }
   }
 
@@ -327,6 +342,6 @@ class ASTAnalyzer extends TypeVisitor {
 
   def visit(node: Program): VariableType = {
     node.statements.map(visit)
-    VariableType("void",-1)
+    VariableType("void", 0)
   }
 }
