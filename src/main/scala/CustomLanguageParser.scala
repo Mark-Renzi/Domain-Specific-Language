@@ -58,6 +58,12 @@ case class FunctionDeclaration(variableType: VariableType, variable:String, para
  */
 case class ChainDeclaration(server: VariableReference, variableType: VariableType,variable:String,param: Seq[(VariableType, VariableReference)],body: Seq[Statement]) extends Statement
 
+/**
+ * Represents a chain call of a function on a server as an expression
+ * @param server The server associated with the execution chain
+ * @param variable The name of the chain
+ * @param param The parameters of the chain as a sequence of expressions
+ */
 case class ChainCall(server: VariableReference, variable: String, param: Seq[Expression]) extends Expression
 
 /**
@@ -451,6 +457,10 @@ object CustomLanguageParser {
       case (t, serv, VariableReference(v, -1),s,b) => ChainDeclaration(serv, t,v,s,b)
     }
 
+    /**
+     * Parses a call to a chain function call on a server
+     * @return ChainCall
+     */
   private def chainCall[_: P]: P[ChainCall] =
     P(variableReference ~~ "." ~~ variableReference ~ "(" ~ expression.rep(min = 0, sep = ",") ~ ")").map  {
       case (serv, VariableReference(v, -1),s) => ChainCall(serv,v,s)

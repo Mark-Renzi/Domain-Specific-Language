@@ -88,7 +88,7 @@ int parseResponse(char* response){
     case op: Operation =>
       val left = visit(op.l)
       val right = op.r.map { case (oper, expr) => oper + " " + visit(expr) }.mkString(" ")
-      s"$left $right"
+      s"($left $right)"
     case num: IntegerLiteral => num.value.toString
     case flt: FloatLiteral => flt.value.toString
     case neg: Negation => s"${neg.l}${visit(neg.r)}"
