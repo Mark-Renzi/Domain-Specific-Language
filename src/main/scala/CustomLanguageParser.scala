@@ -529,7 +529,8 @@ object Main {
       case Success(ast, _) =>
         println(s"Parsing '$fileName' succeeded:")
         println(ast)
-
+        val analyzer  = new ASTAnalyzer()
+        val analysisResult = analyzer.visit(ast)
         val generator = new CodeGenerator()
         val cCode = generator.visit(ast)
         println(cCode)
