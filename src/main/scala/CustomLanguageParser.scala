@@ -93,6 +93,12 @@ case class ForLoop(ct: Option[VariableDeclaration], condition: Option[Expression
 case class WhileLoop(condition: Expression, body: Seq[Statement]) extends Statement
 
 /**
+ * Represents the infinite loop statement for embedded programming
+ * @param body The body of the conditional as a sequence of statements
+ */
+case class ProgramLoop(body: Seq[Statement]) extends Statement
+
+/**
  * Represents a Function call as a statement
  * @param func The function call as an expression
  */
@@ -369,7 +375,7 @@ object CustomLanguageParser {
    * @param depth the depth of the statement indentation
    * @return Statement
    */
-  private def statement[_: P](depth: Int): P[Statement] = returnStatement | includeStatement | chainDeclaration(depth) | servDef | functionDeclaration(depth) | ifConditional(depth) | variableDeclaration | variableDefinition | functionCallAsStatement | whileLoop(depth) | forLoop(depth)
+  private def statement[_: P](depth: Int): P[Statement] = returnStatement | includeStatement | chainDeclaration(depth) | servDef | functionDeclaration(depth) | ifConditional(depth) | variableDeclaration | variableDefinition | functionCallAsStatement | whileLoop(depth) | forLoop(depth) | programLoop(depth)
 
   /**
    * Parses a function call statement
@@ -504,6 +510,11 @@ object CustomLanguageParser {
   private def whileLoop[_: P](depth: Int): P[WhileLoop] =
     P("while" ~/ expression ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
       case (c, b) => WhileLoop(c, b)
+    }
+
+  private def programLoop[_: P](depth: Int): P[ProgramLoop] =
+    P("loop" ~/ ":" ~ newline ~~ (("    " | "\t").repX(min = depth,max = depth) ~~ statement(depth + 1)).repX()).map {
+      case (b) => ProgramLoop(b)
     }
 
   /**
