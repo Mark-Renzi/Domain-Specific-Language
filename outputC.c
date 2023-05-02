@@ -4,7 +4,6 @@ int flag = 1;
 uint32_t count = 42;
 char * a = "forty-two";
 a = "zero";
-uint32_t _myList = {1, 2, 3};
 float PI = 3.1415;
 uint8_t myFunc(uint32_t price, char * item) {
 uint32_t amt = price;
@@ -13,8 +12,9 @@ return amt;
 
 count = 1;
 uint8_t ret = myFunc(count, a);
-a = price2;
-if (a == b && a) {
+char * b = "one";
+char * c = "two";
+if (a == b) {
 a = c;
 } else if (0) {
 b = a;
