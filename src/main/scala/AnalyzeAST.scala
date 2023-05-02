@@ -8,41 +8,52 @@ trait TypeVisitor {
 }
 
 class Environment{ //TODO NEW SCOPE STUFF
+    var parent = Environment()
+    var isEmpty = true
     private var E:Map[String, VariableType] = Map()
 
     def addVar(id: String, vartype: VariableType): Unit = 
         E += (id -> vartype)
+        isEmpty = false
     
     def checkType(id: String): VariableType = 
         if( E.contains(id)) {
             return E(id)
-        } else {
+        } else if(parent.checkType(id)!=VariableType("void", -1)){
+            return parent.checkType(id)
+        }
+        else {
             return VariableType("void", -1)
         }
+    
+    def setParent(e: Environment): Unit = 
+        parent = e
+
+
 
 }
-class FunctionSignature{
-    var returnType = VariableType("void",-1)
-    var params =  Seq[(VariableType, VariableReference)]
+class FunctionSignature(var returnType: VariableType, params = Seq[(VariableType, VariableReference)]){
+
 }
+
 class FunctionEnvironment{
     private var F:Map[String, FunctionSignature] = Map()
 
-    def addVar(id: String, signature: FunctionSignature): Unit = 
+    def addFunc(id: String, signature: FunctionSignature): Unit = 
         F += (id -> signature)
     
     def checkType(id: String): VariableType = 
         if( F.contains(id)) {
             return F(id).returnType
         } else {
-            return VariableType("void", -1)
+            return VariableType("void", 0)
         }
 
     def checkParams(id: String): Seq[(VariableType, VariableReference)] = 
         if(F.contains(id)) {
             return F(id).params
         } else {
-            return None
+            return Seq[(VariableType, VariableReference)]()
         }
 
 }
@@ -62,7 +73,7 @@ class ASTAnalyzer extends TypeVisitor {
     
     op match {
         case "+" => 
-            arithmeticTypes.contains(t1.t) && arithmeticTypes.contains(t2.t)
+            arithmeticTypes.contains(t1.t) && arithmeticTypes.contains(t2.t) || stringTypes.contains(t1.t) && stringTypes.contains(t2.t)
         case "-" => 
             arithmeticTypes.contains(t1.t) && arithmeticTypes.contains(t2.t)
         case "*" => 
@@ -110,6 +121,7 @@ class ASTAnalyzer extends TypeVisitor {
     val floatTypes:List[String] = List("f32", "f64")
     val arithmeticTypes:List[String] = List("u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64", "f32", "f64")
     val shiftTypes:List[String] = List("u8", "u16", "u32", "u64", "i8", "i16", "i32", "i64")
+    val stringTypes:List[String] = List("string")
     val logicalTypes:List[String] = List("bool")
     op match {
         case "+" => 
@@ -117,15 +129,21 @@ class ASTAnalyzer extends TypeVisitor {
                 VariableType("f64",-1)
             } else if(signedTypes.contains(t1.t) || signedTypes.contains(t2.t)){
                 VariableType("i64",-1)
+            } else if(stringTypes.contains(t1.t) && stringTypes.contains(t2.t)){
+                VariableType("string", -1)
+            } else{
+                VariableType("u64",-1)
             }
-            VariableType("u64",-1)
+            
         case "-" => 
             if(floatTypes.contains(t1.t) || floatTypes.contains(t2.t)){
                 VariableType("f64",-1)
             } else if(signedTypes.contains(t1.t) || signedTypes.contains(t2.t)){
                 VariableType("i64",-1)
+            } else{
+                VariableType("u64",-1)
             }
-            VariableType("u64",-1)
+            
         case "*" => 
             if(floatTypes.contains(t1.t) || floatTypes.contains(t2.t)){
                 VariableType("f64",-1)
@@ -250,16 +268,19 @@ class ASTAnalyzer extends TypeVisitor {
             return VariableType("void",-1)
         }
         VariableType("void",-1)
+
       case funcDecl: FunctionDeclaration =>
-        val params = funcDecl.param.map { case (varType,varRef) => s"${visit(varType)} ${visit(varRef)}" }
-        val body = funcDecl.body.map(visit)
-        val existing_type = E.checkType(funcDecl.variable)
-        if(existing_type == VariableType("void",-1)){
-            E.addVar(funcDecl.variable, funcDecl.variableType)
+        if(F.checkType(funcDecl.variable) == VariableType("void",0)){
+            val params = funcDecl.param.map { case (varType,varRef) => s"${visit(varType)} ${visit(varRef)}" }
+            F.addFunc(funcDecl.variable, FunctionSignature(funcDecl.variableType, funcDecl.param))
         } else{
             throw new RuntimeException(s"Trying to declare already declared function: $node")
             return VariableType("void",-1)
         }
+        // Step into new scope for function
+        
+        val body = funcDecl.body.map(visit)
+
         funcDecl.variableType
       // Add other cases for different Statement types
       case cond: Conditional =>
