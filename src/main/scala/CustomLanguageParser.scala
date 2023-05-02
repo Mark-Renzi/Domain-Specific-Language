@@ -590,7 +590,7 @@ object Main {
         val analysisResult = analyzer.visit(ast)
         val generator = new CodeGenerator()
         val cCode = generator.visit(ast)
-        println(cCode)
+        //println(cCode)
         
         val outputPath = "outputC.c"
         Files.write(Paths.get(outputPath),cCode.getBytes)

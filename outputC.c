@@ -12,6 +12,8 @@
 
 #define MAX_BUFFER_SIZE 4096
 
+char http_header[1000] = "POST / HTTP/1.0\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s";
+
 int connectServer(char *server_ip, char *server_port){
 	struct addrinfo hints;
 	struct addrinfo *results, *curr;
@@ -79,7 +81,7 @@ count = 1;
 uint8_t ret = myFunc(count, a);
 char * b = "one";
 char * c = "two";
-if (a == b) {
+if ((a == b)) {
 	a = c;
 } else if (0) {
 	b = a;
@@ -89,27 +91,42 @@ if (a == b) {
 } 
 c[42] = a;
 uint32_t report_serv = connectServer("127.0.0.1", "9999");
-char *report_serv_add_report_template = "{\"params\": {\"reading": %f}, \"body\": int result = add_data(reading);
+char *report_serv_add_report_template = "{\"params\": {\"reading\": %f}, \"body\": int result = add_data(reading);
 if (result) {
 	return sum_data();
 } else {
 	err_report();
 	return -1;
 } }"
-int32_t testvar = char message_filled[1024];
- sprintf(message_filled, report_serv_add_report_template, count);
-      |;
+int32_t testvar = NULL;
+      char report_serv_add_report_template_filled[1024];
+      sprintf(message_filled, report_serv_add_report_template, count);
+      int length_report_serv_add_report_template = strlen(message);
+      char payload_report_serv_add_report_template[1200];
+      sprintf(payload_report_serv_add_report_template, http_header, length_report_serv_add_report_template, report_serv_add_report_template_filled);
+      length_report_serv_add_report_template = strlen(payload_report_serv_add_report_template);
+		  send(report_serv, payload_report_serv_add_report_template, length_report_serv_add_report_template,0);
+		  //sleep(2);
+	    char response_report_serv_add_report_template[MAX_BUFFER_SIZE];
+		  received = recv(report_serv, response_report_serv_add_report_template, MAX_BUFFER_SIZE, 0);
+		  printf("Received %d bytes\n", received);
+		  if(received == 123){
+			  received = recv(report_serv, response_report_serv_add_report_template, + 123, MAX_BUFFER_SIZE - 123,0);
+			  printf("Received %d bytes\n", received);
+		  }
+		  parseResponse(response_report_serv_add_report_template);
+      ;
 while (flag) {
-	count = count + 1;
-	if (count == 42) {
+	count = (count + 1);
+	if ((count == 42)) {
 	flag = 0;
 } else {
 	flag = 1;
 } 
 }
-for (uint8_t i = 0; i < 10; i = i + 1) {
-	count = count + 1;
-	if (count == 42) {
+for (uint8_t i = 0; (i < 10); i = (i + 1)) {
+	count = (count + 1);
+	if ((count == 42)) {
 	flag = 0;
 } else {
 	flag = 1;

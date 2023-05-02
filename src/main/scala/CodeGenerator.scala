@@ -13,6 +13,8 @@ trait ASTVisitor {
 
 class CodeGenerator extends ASTVisitor {
 
+
+  // Helper stuff in C for network stuff/I2C stuff, probably naive way to add it but :(
   val template = """#include <wiringPiI2C.h>
 #include <stdio.h>
 #include <sys/socket.h>
@@ -26,6 +28,8 @@ class CodeGenerator extends ASTVisitor {
 #include <unistd.h>
 
 #define MAX_BUFFER_SIZE 4096
+
+char http_header[1000] = "POST / HTTP/1.0\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s";
 
 int connectServer(char *server_ip, char *server_port){
 	struct addrinfo hints;
@@ -78,13 +82,17 @@ int parseResponse(char* response){
         
 }"""
 
+  // Return String representation of the expression in C
   def visit(node: Expression): String = node match {
     case lit: BooleanLiteral => if (lit.value) "1" else "0"
     case lit: StringLiteral => "\"" + lit.value + "\""
     case arr: ArrayLiteral => "{" + arr.v.map(visit).mkString(", ") + "}"
+  
     case vr: VariableReference =>
       val arrayIndex = if (vr.arrInd != -1) s"[${vr.arrInd}]" else ""
       vr.name + arrayIndex
+
+    // Combine left/right subexpressions and operator
     case op: Operation =>
       val left = visit(op.l)
       val right = op.r.map { case (oper, expr) => oper + " " + visit(expr) }.mkString(" ")
@@ -92,21 +100,44 @@ int parseResponse(char* response){
     case num: IntegerLiteral => num.value.toString
     case flt: FloatLiteral => flt.value.toString
     case neg: Negation => s"${neg.l}${visit(neg.r)}"
+
+    // Treat function call as variable name + params in parentheses
     case fc: FunctionCall =>
       val params = fc.param.map(visit).mkString(", ")
       s"${visit(fc.variable)}($params)"
+    
+    //I2C Target Setup
     case tr: TargetReference => s"wiringPiI2CSetup(${tr.value.toString})"
+
+    //I2C Target Read
     case tq: TargetQuery => s"wiringPiI2CRead(${tq.variable.name})"
+
+    // No good very bad case, should be a statement, disgusting, ends in trailing semicolon, bit embarrassing but harddddddd
     case cc: ChainCall => 
       val params = cc.param.map(visit).mkString(", ")
       val format_string = s"${cc.server.name}_${cc.variable}_template"
-      s"""char message_filled[1024];
+      s"""NULL;
+      char ${format_string}_filled[1024];
       sprintf(message_filled, $format_string, ${params});
-      |"""
+      int length_$format_string = strlen(message);
+      char payload_$format_string[1200];
+      sprintf(payload_$format_string, http_header, length_$format_string, ${format_string}_filled);
+      length_$format_string = strlen(payload_$format_string);
+		  send(${cc.server.name}, payload_$format_string, length_$format_string,0);
+		  //sleep(2);
+	    char response_$format_string[MAX_BUFFER_SIZE];
+		  received = recv(${cc.server.name}, response_$format_string, MAX_BUFFER_SIZE, 0);
+		  printf("Received %d bytes\\n", received);
+		  if(received == 123){
+			  received = recv(${cc.server.name}, response_$format_string, + 123, MAX_BUFFER_SIZE - 123,0);
+			  printf("Received %d bytes\\n", received);
+		  }
+		  parseResponse(response_$format_string);
+      """
     case _ => throw new RuntimeException(s"Unsupported node type: $node")
   }
 
-
+  // make string out of statment and all substatements/expressions, put semicolon for end of statement
   def visit(node: Statement): String = {
     node match {
       case retStmt: ReturnStatement =>
@@ -119,7 +150,7 @@ int parseResponse(char* response){
         val params = funcDecl.param.map { case (varType,varRef) => s"${visit(varType)} ${visit(varRef)}" }.mkString(", ")
         val body = funcDecl.body.map(visit).mkString("\n\t")
         s"${visit(funcDecl.variableType)} ${funcDecl.variable}($params) {\n\t$body\n}"
-      // Add other cases for different Statement types
+      
       case cond: Conditional =>
         val prefix = if(cond.previousIsIf.getOrElse(false)) "else " else ""
         val condition = cond.condition.map(c => s"${prefix}if (${visit(c)})").getOrElse("else")
@@ -144,16 +175,18 @@ int parseResponse(char* response){
       case includeStmt: Include =>
         s"#include \"${includeStmt.path}\""
 
+      //use premade helper function
       case serv: ServerDeclaration=>
         s"uint32_t ${serv.v.name} = connectServer(\"${serv.url}\", \"${serv.port}\");"
       case cd: ChainDeclaration =>
-        val params = cd.param.map{case (varType,varRef) => s"${visit(varRef)}"}.mkString("\": %f, \"") + "\": %f"
+        val params = cd.param.map{case (varType,varRef) => s"${visit(varRef)}"}.mkString("\\\": %f, \"") + "\\\": %f"
         val body = cd.body.map(visit).mkString("\n")
         s"""char *${cd.server.name}_${cd.variable}_template = \"{\\\"params\\\": {\\\"${params}}, \\\"body\\\": ${body}}\""""
       case _ => ""
     }
   }
 
+  // convert our types to c equivalent for variable/function declaration
   override def visit(node: VariableType): String = {
     val baseType = node.t match {
       case "bool" => "int"
