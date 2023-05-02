@@ -289,7 +289,14 @@ class ASTAnalyzer extends TypeVisitor {
         funcDecl.variableType
       // Add other cases for different Statement types
       case cond: Conditional =>
-        val condition = visit(cond.condition.getOrElse(throw new RuntimeException(s"Type mismatch in conditional: $node")))
+        val condition = cond.condition match {
+            case Some(c) => visit(c)
+            case None => VariableType("bool",-1)
+        }
+        
+        if(condition != VariableType("bool",-1)){
+            throw new RuntimeException(s"Condtional was not bool: $node, $condition")
+        }
         Ep = new Environment(Option(Ep))    // create child environment
         val body = cond.body.map(visit)
         Ep = Ep.getParent()                 // pop to child's parent
@@ -297,16 +304,22 @@ class ASTAnalyzer extends TypeVisitor {
         VariableType("void", 0)
       case forLoop: ForLoop =>
         Ep = new Environment(Option(Ep))
-        val init = forLoop.ct.map(visit).getOrElse("")
-        val condition = forLoop.condition.map(visit).getOrElse(throw new RuntimeException(s"Type mismatch in conditional: $node"))
-        val increment = forLoop.redefinition.map(visit).getOrElse("")
+        val init = forLoop.ct.map(visit)
+        val condition = forLoop.condition match {
+            case Some(c) => visit(c)
+            case None => VariableType("bool",-1)
+        }
+        if(condition != VariableType("bool",-1)){
+            throw new RuntimeException(s"Condtional was not bool: $node, $condition")
+        }
+        val increment = forLoop.redefinition.map(visit)
         val body = forLoop.body.map(visit)
         Ep = Ep.getParent()
         VariableType("void", 0)
       case whileLoop: WhileLoop =>
         val condition = visit(whileLoop.condition)
         Ep = new Environment(Option(Ep))
-        val body = whileLoop.body.map(visit).mkString("\n")
+        val body = whileLoop.body.map(visit)
         Ep = Ep.getParent()
         VariableType("void", 0)
       case funcCallStmt: FunctionCallAsStatement =>
