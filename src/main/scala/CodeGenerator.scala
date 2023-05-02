@@ -62,6 +62,9 @@ class CodeGenerator extends ASTVisitor {
         val condition = visit(whileLoop.condition)
         val body = whileLoop.body.map(visit).mkString("\n")
         s"while ($condition) {\n$body\n}"
+      case programLoop: ProgramLoop =>
+        val body = programLoop.body.map(visit).mkString("\n")
+        s"while (1) {\n$body\n}"
       case funcCallStmt: FunctionCallAsStatement =>
         s"${visit(funcCallStmt.func)};"
       case includeStmt: Include =>
