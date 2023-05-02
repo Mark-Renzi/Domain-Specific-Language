@@ -356,13 +356,13 @@ object CustomLanguageParser {
 
 
   // Matching a newline
-  private def newline[_: P]: P[Unit] = P(((("\r".? ~ "\n" | "\r") | comment ).rep(1) | End).map(_ => ()))
+  private def newline[_: P]: P[Unit] = P((((("\r".? ~~ "\n") | "\n" ) | comment).rep(1) | End).map(_ => ()))
 
   /**
    * Parses comments and comsumes them
    * @return Unit
    */
-  private def comment[_: P]: P[Unit] = P((("/*" ~/ (!"*/" ~ AnyChar).rep ~ "*/") ~ newline.rep(0)) | ("//" ~/ (!"\r\n" ~ AnyChar).rep) ~ newline)
+  private def comment[_: P]: P[Unit] = P((("/*" ~/ (!"*/" ~ AnyChar).rep ~ "*/") ~ newline.rep(0)) | ("//" ~/ (!"\r\n" ~ !"\n" ~ AnyChar).rep) ~ newline)
 
   /**
    * Parses a generic statement
