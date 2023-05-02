@@ -58,6 +58,8 @@ case class FunctionDeclaration(variableType: VariableType, variable:String, para
  */
 case class ChainDeclaration(server: VariableReference, variableType: VariableType,variable:String,param: Seq[(VariableType, VariableReference)],body: Seq[Statement]) extends Statement
 
+case class ChainCall(server: VariableReference, variable: String, param: Seq[Expression]) extends Expression
+
 /**
  * Represents a server declaration
  * @param v The name of the server
@@ -278,7 +280,7 @@ object CustomLanguageParser {
    * Parses any type of literal
    * @return Expression
    */
-  private def literal[_: P]: P[Expression] = P(targetQuery | functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | arrayLiteral | variableReference | targetReference)
+  private def literal[_: P]: P[Expression] = P(targetQuery | chainCall | functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | arrayLiteral | variableReference | targetReference)
   private def parens[_: P]: P[Expression] = P("(" ~/ truthOr ~ ")")
 
   // e12
@@ -449,6 +451,10 @@ object CustomLanguageParser {
       case (t, serv, VariableReference(v, -1),s,b) => ChainDeclaration(serv, t,v,s,b)
     }
 
+  private def chainCall[_: P]: P[ChainCall] =
+    P(variableReference ~~ "." ~~ variableReference ~ "(" ~ expression.rep(min = 0, sep = ",") ~ ")").map  {
+      case (serv, VariableReference(v, -1),s) => ChainCall(serv,v,s)
+    }
   /**
    * Parses a function declaration statement
    * @param depth the depth of the statement indentation

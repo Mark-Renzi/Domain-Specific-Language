@@ -97,6 +97,12 @@ int parseResponse(char* response){
       s"${visit(fc.variable)}($params)"
     case tr: TargetReference => s"wiringPiI2CSetup(${tr.value.toString})"
     case tq: TargetQuery => s"wiringPiI2CRead(${tq.variable.name})"
+    case cc: ChainCall => 
+      val params = cc.param.map(visit).mkString(", ")
+      val format_string = s"${cc.server.name}_${cc.variable}_template"
+      s"""char message_filled[1024];
+      sprintf(message_filled, $format_string, ${params});
+      |"""
     case _ => throw new RuntimeException(s"Unsupported node type: $node")
   }
 
@@ -143,7 +149,7 @@ int parseResponse(char* response){
       case cd: ChainDeclaration =>
         val params = cd.param.map{case (varType,varRef) => s"${visit(varRef)}"}.mkString("\": %f, \"") + "\": %f"
         val body = cd.body.map(visit).mkString("\n")
-        s"""char *${cd.server.name}_${cd.variable}_template = \"{\"params\": {\"${params}}, \"body\": ${body}}\""""
+        s"""char *${cd.server.name}_${cd.variable}_template = \"{\\\"params\\\": {\\\"${params}}, \\\"body\\\": ${body}}\""""
       case _ => ""
     }
   }

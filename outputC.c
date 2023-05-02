@@ -65,7 +65,7 @@ int parseResponse(char* response){
 #include "mylib"
 int32_t x = 5;
 int flag = 1;
-uint32_t count = 42;
+uint16_t count = 42;
 char * a = "forty-two";
 a = "zero";
 float PI = 3.1415;
@@ -89,13 +89,16 @@ if (a == b) {
 } 
 c[42] = a;
 uint32_t report_serv = connectServer("127.0.0.1", "9999");
-char *report_serv_add_report_template = "{"params": {"reading": %f}, "body": int result = add_data(reading);
+char *report_serv_add_report_template = "{\"params\": {\"reading": %f}, \"body\": int result = add_data(reading);
 if (result) {
 	return sum_data();
 } else {
 	err_report();
 	return -1;
 } }"
+int32_t testvar = char message_filled[1024];
+ sprintf(message_filled, report_serv_add_report_template, count);
+      |;
 while (flag) {
 	count = count + 1;
 	if (count == 42) {

@@ -241,6 +241,7 @@ class ASTAnalyzer extends TypeVisitor {
       existingType
     case tr: TargetReference => VariableType("I2CTarget", -1)
     case tq: TargetQuery => VariableType("i32", -1)
+    case cc: ChainCall => VariableType("i64", -1)
     case _ => throw new RuntimeException(s"Unsupported node type: $node")
   }
 
