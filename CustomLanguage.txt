@@ -21,8 +21,10 @@ def u8 myFunc(u32 price, string item):
     u32 amt = price
     return amt
 
-@def void myFunction(u32 price, string item):
-    u32 amt = price
+/**
+ *@def void myFunction(u32 price, string item):
+ *   u32 amt = price
+*/
 
 count = 1
 u8 ret = myFunc(count, a)
@@ -39,9 +41,9 @@ else:
 
 c[42]=a
 
-@report_serv = ("devicereport.appoogle.com", 1337, TCP, {@add_data, @err_report, @sum_data, @add_report})
+@report_serv = ("127.0.0.1", 9999, TCP, {@add_data, @err_report, @sum_data, @add_report})
 
-@def i32 add_report(u16 reading):
+@def i32 report_serv.add_report(u16 reading):
 	bool result = add_data(reading)
 	if(result): //the server has returned something
 		return sum_data()

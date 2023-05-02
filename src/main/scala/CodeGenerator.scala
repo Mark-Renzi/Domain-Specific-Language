@@ -137,6 +137,13 @@ int parseResponse(char* response){
         s"${visit(funcCallStmt.func)};"
       case includeStmt: Include =>
         s"#include \"${includeStmt.path}\""
+
+      case serv: ServerDeclaration=>
+        s"uint32_t ${serv.v.name} = connectServer(\"${serv.url}\", \"${serv.port}\");"
+      case cd: ChainDeclaration =>
+        val params = cd.param.map{case (varType,varRef) => s"${visit(varRef)}"}.mkString("\": %f, \"") + "\": %f"
+        val body = cd.body.map(visit).mkString("\n")
+        s"""char *${cd.server.name}_${cd.variable}_template = \"{\"params\": {\"${params}}, \"body\": ${body}}\""""
       case _ => ""
     }
   }

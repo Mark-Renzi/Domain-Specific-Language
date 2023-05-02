@@ -75,7 +75,6 @@ uint8_t myFunc(uint32_t price, char * item) {
 	uint32_t amt = price;
 	return amt;
 }
-
 count = 1;
 uint8_t ret = myFunc(count, a);
 char * b = "one";
@@ -89,8 +88,14 @@ if (a == b) {
 	a = a;
 } 
 c[42] = a;
-
-
+uint32_t report_serv = connectServer("127.0.0.1", "9999");
+char *report_serv_add_report_template = "{"params": {"reading": %f}, "body": int result = add_data(reading);
+if (result) {
+	return sum_data();
+} else {
+	err_report();
+	return -1;
+} }"
 while (flag) {
 	count = count + 1;
 	if (count == 42) {

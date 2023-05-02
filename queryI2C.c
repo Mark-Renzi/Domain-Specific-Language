@@ -72,6 +72,7 @@ void main(){
 	char http_header[1000] = "POST / HTTP/1.0\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s";
 	int target = wiringPiI2CSetup(0x19);
 	
+	printf("%f\n", target);
 	int s;
 	char result = 0;
 	

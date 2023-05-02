@@ -50,12 +50,13 @@ case class FunctionDeclaration(variableType: VariableType, variable:String, para
 
 /**
  * Represents a chain declaration
+ * @param server The server associated with the execution chain
  * @param variableType The return type of the chain
  * @param variable The name of the chain
  * @param param The parameters of the chain as a sequence of tuples of the type and name of the parameter
  * @param body The body of the chain as a sequence of statements
  */
-case class ChainDeclaration(variableType: VariableType,variable:String,param: Seq[(VariableType, VariableReference)],body: Seq[Statement]) extends Statement
+case class ChainDeclaration(server: VariableReference, variableType: VariableType,variable:String,param: Seq[(VariableType, VariableReference)],body: Seq[Statement]) extends Statement
 
 /**
  * Represents a server declaration
@@ -65,7 +66,7 @@ case class ChainDeclaration(variableType: VariableType,variable:String,param: Se
  * @param protocol The communication protocol of the server
  * @param functions The functions on the server
  */
-case class ServerDeclaration(v: VariableReference, url: String, port: Int, protocol: String, functions: Seq[VariableReference]) extends Statement
+case class ServerDeclaration(v: VariableReference, url: String, port: String, protocol: String, functions: Seq[VariableReference]) extends Statement
 
 /**
  * Represents a conditional statement
@@ -103,6 +104,7 @@ case class ProgramLoop(body: Seq[Statement]) extends Statement
  * @param func The function call as an expression
  */
 case class FunctionCallAsStatement(func: FunctionCall) extends Statement
+
 
 /**
  * Represents and include statement
@@ -443,8 +445,8 @@ object CustomLanguageParser {
    * @return ChainDeclaration
    */
   private def chainDeclaration[_: P](depth: Int): P[ChainDeclaration] =
-    P("@def" ~ variableType ~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min = 0,sep = ",") ~ ")" ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
-      case (t,VariableReference(v, -1),s,b) => ChainDeclaration(t,v,s,b)
+    P("@def" ~ variableType ~ variableReference ~"."~ variableReference ~ "(" ~ (variableType ~ variableReference).rep(min = 0,sep = ",") ~ ")" ~ ":" ~ newline ~~ (("    " | "\t").repX(min = depth, max = depth) ~~ statement(depth + 1)).repX()).map {
+      case (t, serv, VariableReference(v, -1),s,b) => ChainDeclaration(serv, t,v,s,b)
     }
 
   /**
@@ -478,7 +480,7 @@ object CustomLanguageParser {
    */
   private def servDef[_: P]: P[ServerDeclaration] =
     P("@" ~ variableReference ~ "=" ~ "(" ~ "\"" ~ CharIn("a-zA-Z0-9\\.\\-:/").rep(1).! ~ "\"" ~ "," ~ CharIn("0-9").rep(1).! ~ "," ~ variableReference ~ "," ~ "{" ~ ("@" ~~ variableReference ).rep(min = 0, sep = ",") ~ "}" ~ ")" ~ newline).map {
-      case (v,u,p,VariableReference(prtcl, -1),f) => ServerDeclaration(v,u,p.toInt,prtcl,f)
+      case (v,u,p,VariableReference(prtcl, -1),f) => ServerDeclaration(v,u,p,prtcl,f)
     }
 
   /**
