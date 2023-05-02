@@ -73,6 +73,7 @@ class ASTAnalyzer extends TypeVisitor {
     val logicalTypes:List[String] = List("bool")
     val stringTypes:List[String] = List("string")
     val floatTypes:List[String] = List("f32", "f64")
+    val targetTypes:List[String] = List("I2CTarget")
     
     op match {
         case "+" => 
@@ -114,7 +115,7 @@ class ASTAnalyzer extends TypeVisitor {
         case "||" => 
             logicalTypes.contains(t1.t) && logicalTypes.contains(t2.t)
         case "=" =>
-            (shiftTypes.contains(t1.t) && shiftTypes.contains(t2.t)) || (logicalTypes.contains(t1.t) && logicalTypes.contains(t2.t)) || (floatTypes.contains(t1.t) && floatTypes.contains(t2.t)) || (stringTypes.contains(t1.t) && stringTypes.contains(t2.t))
+            (shiftTypes.contains(t1.t) && shiftTypes.contains(t2.t)) || (logicalTypes.contains(t1.t) && logicalTypes.contains(t2.t)) || (floatTypes.contains(t1.t) && floatTypes.contains(t2.t)) || (stringTypes.contains(t1.t) && stringTypes.contains(t2.t)) || ((targetTypes.contains(t1.t) && targetTypes.contains(t2.t)))
         case _ => throw new RuntimeException(s"bad thing happened, $op")
     }
   }
@@ -238,6 +239,8 @@ class ASTAnalyzer extends TypeVisitor {
         return VariableType("void", 0)
       } 
       existingType
+    case tr: TargetReference => VariableType("I2CTarget", -1)
+    case tq: TargetQuery => VariableType("i32", -1)
     case _ => throw new RuntimeException(s"Unsupported node type: $node")
   }
 
@@ -256,7 +259,7 @@ class ASTAnalyzer extends TypeVisitor {
         }
         val exprType = visit(varDecl.value)
         if(!matches(varDecl.variableType,exprType,"=")){
-            throw new RuntimeException(s"Type mismatch in variable declaration: $node, $varDecl.variableType, $exprType")
+            throw new RuntimeException(s"Type mismatch in variable declaration: $node, ${varDecl.variableType}, $exprType")
             
         }
         VariableType("void", 0)
@@ -274,6 +277,9 @@ class ASTAnalyzer extends TypeVisitor {
         VariableType("void", 0)
 
       case funcDecl: FunctionDeclaration =>
+        if(funcDecl.variable == "queryI2C"){
+            throw new RuntimeException(s"Function name ${funcDecl.variable} reserved already: $node")
+        }
         if(F.checkType(funcDecl.variable) == VariableType("void", 0)){
             val params = funcDecl.param.map { case (varType,varRef) => s"${visit(varType)} ${visit(varRef)}" }
             F.addFunc(funcDecl.variable, new FunctionSignature(funcDecl.variableType, funcDecl.param))
@@ -345,6 +351,7 @@ class ASTAnalyzer extends TypeVisitor {
       case "f32" => "float"
       case "f64" => "double"
       case "void" => "void"
+      case "I2CTarget" => "uint32_t"
       case _ => throw new RuntimeException(s"Unsupported type: ${node.t}")
     }
 

@@ -62,48 +62,51 @@ int parseResponse(char* response){
 	}
         
 }
-#include "mylib"
-int32_t x = 5;
-int flag = 1;
-uint32_t count = 42;
-char * a = "forty-two";
-a = "zero";
-float PI = 3.1415;
-uint32_t myTarget = wiringPiI2CSetup(25);
-int32_t babab = wiringPiI2CRead(myTarget);
-uint8_t myFunc(uint32_t price, char * item) {
-	uint32_t amt = price;
-	return amt;
-}
 
-count = 1;
-uint8_t ret = myFunc(count, a);
-char * b = "one";
-char * c = "two";
-if (a == b) {
-	a = c;
-} else if (0) {
-	b = a;
-	a = b;
-} else {
-	a = a;
-} 
-c[42] = a;
+//TODO- function to put values into defined execution chain,
+//		function to put execution chain into HTTP Header string
+//		function to initialize I2C device given address/pin
 
 
-while (flag) {
-	count = count + 1;
-	if (count == 42) {
-	flag = 0;
-} else {
-	flag = 1;
-} 
-}
-for (uint8_t i = 0; i < 10; i = i + 1) {
-	count = count + 1;
-	if (count == 42) {
-	flag = 0;
-} else {
-	flag = 1;
-} 
+void main(){
+	char http_header[1000] = "POST / HTTP/1.0\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: %d\r\n\r\n%s";
+	int target = wiringPiI2CSetup(0x19);
+	
+	int s;
+	char result = 0;
+	
+	char *server_ip = "127.0.0.1";
+	char *server_port = "9999";
+	
+	s = connectServer(server_ip, server_port);
+	
+	int length;
+	struct json_object *json_body;
+	char payload[1200];
+	//char message[200] = "{\"params\": \'{\"param1\": {\"type\":\"type\", \"val\":\"literal_value\"}, \"tempReading\": \"32.3\"}\',\"body\": \"print(\"Hey, this works!\")\nadd_data()\"}";
+	char message_missing_param[250] = "{\"params\": {\"humidity\": {\"type\": \"int\", \"val\": %d}, \"body\": \"print(\'Hey, this worked!\')\nresult = sum_data(\'humidity\')\"}";
+	char message[300];
+	char response[MAX_BUFFER_SIZE];
+	int received = 0;
+	for(int i = 0; i < 1 ; i++){
+		result = wiringPiI2CRead(target);
+		printf("Got %d\n",result);
+		//message = json_object_to_json_string_ext(json_body)
+		sprintf(message, message_missing_param, result);
+		length = strlen(message);
+		sprintf(payload, http_header, length, message);
+		printf("%s\n\n", payload);
+		length = strlen(payload);
+		send(s, payload, length,0);
+		//sleep(2);
+		received = recv(s, response, MAX_BUFFER_SIZE, 0);
+		printf("Received %d bytes\n", received);
+		if(received == 123){
+			received = recv(s, response + 123, MAX_BUFFER_SIZE - 123,0);
+			printf("Received %d bytes\n", received);
+		}
+		parseResponse(response);
+		close(s);
+		s = connectServer(server_ip, server_port);
+	}
 }

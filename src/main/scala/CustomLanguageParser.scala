@@ -147,6 +147,19 @@ case class StringLiteral(value: String) extends Expression
 case class ArrayLiteral( v: Seq[Expression]) extends Expression
 
 /**
+ * Represents an I2C target
+ * @param value The address of the target
+ */
+case class TargetReference(value: String) extends Expression
+
+/**
+ * Represents an I2C target
+ * @param variable The I2CTarget variable with the target address
+ */
+case class TargetQuery(variable: VariableReference) extends Expression
+
+
+/**
  * Represents a variable reference
  * @param name The name of the variable
  * @param arrInd The index of the array, if any; -1 otherwise
@@ -174,6 +187,8 @@ case class Negation(l: String, r: Expression) extends Expression
  */
 case class FunctionCall(variable:VariableReference, param: Seq[Expression]) extends Expression
 
+
+
 /**
  * Represents a chain call
  * @param v The value of the return, if any; `None` otherwise
@@ -199,7 +214,7 @@ object CustomLanguageParser {
       "u8", "u16", "u32", "u64",
       "i8", "i16", "i32", "i64",
       "f32", "f64",
-      "void"
+      "void", "I2CTarget"
     ).! ~~ (("[" ~ CharIn("0-9").rep.! ~ "]") | ("[".! ~ "]") ).?
   ) .map{
     case (t, a) => if (a.isEmpty) {VariableType(t, -1)} else {VariableType(t, if (a.getOrElse("err").equals("")) {0} else {a.getOrElse("0").toInt} )}
@@ -236,6 +251,19 @@ object CustomLanguageParser {
   private def arrayLiteral[_: P]: P[ArrayLiteral] = P("{" ~ expression.rep(min = 0, sep = ",") ~ "}") .map(ArrayLiteral)
 
   /**
+   * Parses an I2C target
+   * @return TargetReference
+   */
+  private def targetReference[_: P]: P[TargetReference] = P("<" ~ CharIn("0-9").rep(1).! ~ ">").map(TargetReference)
+
+  /**
+   * Parses an I2C target
+   * @return TargetReference
+   */
+  private def targetQuery[_: P]: P[TargetQuery] = P("queryI2C(" ~ variableReference ~ ")").map{
+    case v => TargetQuery(v)
+  }
+  /**
    * Parses a reference to a variable
    * @return VariableReference
    */
@@ -248,7 +276,7 @@ object CustomLanguageParser {
    * Parses any type of literal
    * @return Expression
    */
-  private def literal[_: P]: P[Expression] = P(functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | arrayLiteral | variableReference )
+  private def literal[_: P]: P[Expression] = P(targetQuery | functionCall | floatLiteral | stringLiteral | integerLiteral | booleanLiteral | arrayLiteral | variableReference | targetReference)
   private def parens[_: P]: P[Expression] = P("(" ~/ truthOr ~ ")")
 
   // e12

@@ -12,6 +12,72 @@ trait ASTVisitor {
 
 
 class CodeGenerator extends ASTVisitor {
+
+  val template = """#include <wiringPiI2C.h>
+#include <stdio.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <errno.h>
+#include <string.h>
+#include <json.h>
+#include <netdb.h>
+#include <netinet/in.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+#define MAX_BUFFER_SIZE 4096
+
+int connectServer(char *server_ip, char *server_port){
+	struct addrinfo hints;
+	struct addrinfo *results, *curr;
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_flags = AI_PASSIVE;
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags |= AI_NUMERICSERV;
+	
+	int s;
+	int status = getaddrinfo(server_ip, server_port, &hints, &results);
+	if(status!=0){
+		fprintf(stderr, "Error: %s\n", gai_strerror(status));
+	}
+	for(curr=results; curr!=NULL; curr=curr->ai_next){
+		s = socket(curr->ai_family, curr->ai_socktype, curr->ai_protocol);
+		if(s==-1){
+			perror("Socket Error");
+			continue;
+		}
+		if(connect(s, curr->ai_addr, curr->ai_addrlen)==0) break;
+		perror("Connect Error");
+		close(s);
+	}
+	
+	return s;
+}
+
+int parseResponse(char* response){
+	
+	printf("Response:\n%s", response);
+	//printf("Header length: %d\n", strlen(response));
+	char *pos = strstr(response, "HTTP/1.0 ");
+	if (pos != NULL) {
+		int status_code = atoi(pos+9);
+		if (status_code == 200) {
+			printf("Success!\n");
+			pos = strstr(response, "Content-Length: ");
+			printf("%p\n",pos);
+			//int content_length = atoi(pos+16);
+			//printf("Content Length: %d\n", content_length);
+			//printf("Payload: %s\n", response + (strlen(response)-content_length));
+			// TODO- parse server esponse based on return type of execution chain, Client should have knowledge of this
+		} else {
+			printf("Error: HTTP status code %d\n", status_code);
+			return -1;
+		}
+	}
+        
+}"""
+
   def visit(node: Expression): String = node match {
     case lit: BooleanLiteral => if (lit.value) "1" else "0"
     case lit: StringLiteral => "\"" + lit.value + "\""
@@ -29,6 +95,8 @@ class CodeGenerator extends ASTVisitor {
     case fc: FunctionCall =>
       val params = fc.param.map(visit).mkString(", ")
       s"${visit(fc.variable)}($params)"
+    case tr: TargetReference => s"wiringPiI2CSetup(${tr.value.toString})"
+    case tq: TargetQuery => s"wiringPiI2CRead(${tq.variable.name})"
     case _ => throw new RuntimeException(s"Unsupported node type: $node")
   }
 
@@ -43,28 +111,28 @@ class CodeGenerator extends ASTVisitor {
         s"${visit(varDef.variableReference)} = ${visit(varDef.value)};"
       case funcDecl: FunctionDeclaration =>
         val params = funcDecl.param.map { case (varType,varRef) => s"${visit(varType)} ${visit(varRef)}" }.mkString(", ")
-        val body = funcDecl.body.map(visit).mkString("\n")
-        s"${visit(funcDecl.variableType)} ${funcDecl.variable}($params) {\n$body\n}"
+        val body = funcDecl.body.map(visit).mkString("\n\t")
+        s"${visit(funcDecl.variableType)} ${funcDecl.variable}($params) {\n\t$body\n}"
       // Add other cases for different Statement types
       case cond: Conditional =>
         val prefix = if(cond.previousIsIf.getOrElse(false)) "else " else ""
         val condition = cond.condition.map(c => s"${prefix}if (${visit(c)})").getOrElse("else")
-        val body = cond.body.map(visit).mkString("\n")
+        val body = cond.body.map(visit).mkString("\n\t")
         val next = cond.next.map(visit).getOrElse("")
-        s"$condition {\n$body\n} $next"
+        s"$condition {\n\t$body\n} $next"
       case forLoop: ForLoop =>
         val init = forLoop.ct.map(visit).getOrElse("").stripSuffix(";")
         val condition = forLoop.condition.map(visit).getOrElse("")
         val increment = forLoop.redefinition.map(visit).getOrElse("").stripSuffix(";")
-        val body = forLoop.body.map(visit).mkString("\n")
-        s"for ($init; $condition; $increment) {\n$body\n}"
+        val body = forLoop.body.map(visit).mkString("\n\t")
+        s"for ($init; $condition; $increment) {\n\t$body\n}"
       case whileLoop: WhileLoop =>
         val condition = visit(whileLoop.condition)
-        val body = whileLoop.body.map(visit).mkString("\n")
-        s"while ($condition) {\n$body\n}"
+        val body = whileLoop.body.map(visit).mkString("\n\t")
+        s"while ($condition) {\n\t$body\n}"
       case programLoop: ProgramLoop =>
-        val body = programLoop.body.map(visit).mkString("\n")
-        s"while (1) {\n$body\n}"
+        val body = programLoop.body.map(visit).mkString("\n\t")
+        s"while (1) {\n\t$body\n}"
       case funcCallStmt: FunctionCallAsStatement =>
         s"${visit(funcCallStmt.func)};"
       case includeStmt: Include =>
@@ -88,6 +156,7 @@ class CodeGenerator extends ASTVisitor {
       case "f32" => "float"
       case "f64" => "double"
       case "void" => "void"
+      case "I2CTarget" => "uint32_t"
       case _ => throw new RuntimeException(s"Unsupported type: ${node.t}")
     }
 
@@ -97,6 +166,6 @@ class CodeGenerator extends ASTVisitor {
 
 
   def visit(node: Program): String = {
-    node.statements.map(visit).mkString("\n")
+    template  + "\n" + node.statements.map(visit).mkString("\n")
   }
 }

@@ -11,9 +11,6 @@ a = "zero"
 //u32[] _myList = {1, 2, 3}
 f32 PI = 3.1415
 
-I2CTarget myTarget = <25>
-i32 babab = queryI2C(myTarget)
-
 /**
  * This is a comment
  */
