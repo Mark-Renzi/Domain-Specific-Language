@@ -7,8 +7,7 @@ trait TypeVisitor {
   def visit(node: VariableType): String
 }
 
-class Environment{ //TODO NEW SCOPE STUFF
-    var parent = Environment()
+class Environment(val parent: Option[Environment]){ //TODO NEW SCOPE STUFF
     var isEmpty = true
     private var E:Map[String, VariableType] = Map()
 
@@ -19,21 +18,18 @@ class Environment{ //TODO NEW SCOPE STUFF
     def checkType(id: String): VariableType = 
         if( E.contains(id)) {
             return E(id)
-        } else if(parent.checkType(id)!=VariableType("void", -1)){
-            return parent.checkType(id)
+        } else if(parent != None && parent.getOrElse(new Environment(None)).checkType(id)!=VariableType("void", -1)){
+            return parent.getOrElse(new Environment(None)).checkType(id)
         }
         else {
             return VariableType("void", -1)
         }
-    
-    def setParent(e: Environment): Unit = 
-        parent = e
-
-
 
 }
-class FunctionSignature(var returnType: VariableType, params = Seq[(VariableType, VariableReference)]){
 
+class FunctionSignature(retType: VariableType,params : Seq[(VariableType, VariableReference)]){
+    var returnType = retType
+    var paramList = params
 }
 
 class FunctionEnvironment{
@@ -51,7 +47,7 @@ class FunctionEnvironment{
 
     def checkParams(id: String): Seq[(VariableType, VariableReference)] = 
         if(F.contains(id)) {
-            return F(id).params
+            return F(id).paramList
         } else {
             return Seq[(VariableType, VariableReference)]()
         }
@@ -60,7 +56,7 @@ class FunctionEnvironment{
 
 
 class ASTAnalyzer extends TypeVisitor {
-    var E = new Environment()
+    var E = new Environment(None)
     var F = new FunctionEnvironment()
 
   def matches(t1: VariableType, t2: VariableType, op: String): Boolean = {
@@ -272,7 +268,7 @@ class ASTAnalyzer extends TypeVisitor {
       case funcDecl: FunctionDeclaration =>
         if(F.checkType(funcDecl.variable) == VariableType("void",0)){
             val params = funcDecl.param.map { case (varType,varRef) => s"${visit(varType)} ${visit(varRef)}" }
-            F.addFunc(funcDecl.variable, FunctionSignature(funcDecl.variableType, funcDecl.param))
+            F.addFunc(funcDecl.variable, new FunctionSignature(funcDecl.variableType, funcDecl.param))
         } else{
             throw new RuntimeException(s"Trying to declare already declared function: $node")
             return VariableType("void",-1)
